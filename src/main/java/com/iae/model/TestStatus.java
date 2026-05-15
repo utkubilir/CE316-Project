@@ -5,6 +5,7 @@ public enum TestStatus {
     FAILED("Failed"),
     COMPILATION_ERROR("Failed"),
     RUNTIME_ERROR("Failed"),
+    TIMEOUT("Failed"),
     OUTPUT_MISMATCH("Failed"),
     EXTRACTION_ERROR("Failed"),
     MISSING_SOURCE("Failed"),
