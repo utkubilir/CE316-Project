@@ -75,6 +75,18 @@ public class MainController {
         });
 
         resultsTable.setItems(resultsData);
+        
+        resultsTable.setRowFactory(tv -> {
+            TableRow<StudentResult> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && (!row.isEmpty()) ) {
+                    StudentResult rowData = row.getItem();
+                    showResultDetailsDialog(rowData);
+                }
+            });
+            return row;
+        });
+
         loadMockResults();
 
         statusLeft.setText("Ready.");
@@ -289,5 +301,20 @@ public class MainController {
         a.setTitle(title);
         a.setHeaderText(title);
         a.showAndWait();
+    }
+
+    private void showResultDetailsDialog(StudentResult result) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Student Result Details");
+        alert.setHeaderText("Result for Student: " + result.getStudentId() + "\nStatus: " + result.getStatus().display());
+        
+        TextArea textArea = new TextArea(result.getDetails());
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+        textArea.setPrefWidth(500);
+        textArea.setPrefHeight(300);
+        
+        alert.getDialogPane().setContent(textArea);
+        alert.showAndWait();
     }
 }
