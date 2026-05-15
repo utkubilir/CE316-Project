@@ -1,7 +1,11 @@
 package com.iae.controller;
 
+import com.iae.service.ConfigurationService;
+import com.iae.model.Configuration;
 import com.iae.model.StudentResult;
 import com.iae.model.TestStatus;
+import com.iae.service.ConfigurationService;
+
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -37,11 +41,12 @@ public class MainController {
     @FXML private Label statusRight;
 
     private final ObservableList<StudentResult> resultsData = FXCollections.observableArrayList();
-
+    private final ConfigurationService configurationService = new ConfigurationService();
     @FXML
     public void initialize() {
         languageCombo.setItems(FXCollections.observableArrayList("C", "C++", "Java", "Python"));
         languageCombo.getSelectionModel().select("C");
+        languageCombo.setOnAction(event -> applyLanguageDefaults());
 
         compileCmdField.setText("/usr/bin/gcc main.c -o main");
         runCmdField.setText("./main arg1 arg2 arg3");
@@ -121,7 +126,17 @@ public class MainController {
     private void onRunTests() {
         info("Run Tests", "Stub — will extract ZIPs, compile, run, compare, and populate the Test Results table.");
     }
+    private void applyLanguageDefaults() {
 
+    String language = languageCombo.getValue();
+
+    Configuration config = configurationService.createConfiguration(
+                    language + " Configuration",
+                    language
+            );
+
+    applyLanguageDefaults();
+}
     private void info(String title, String body) {
         Alert a = new Alert(Alert.AlertType.INFORMATION, body, ButtonType.OK);
         a.setTitle(title);
