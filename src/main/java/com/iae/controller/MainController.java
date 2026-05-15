@@ -1,15 +1,11 @@
 package com.iae.controller;
 
-import com.iae.service.ExecutionEngine;
-import com.iae.service.ConfigurationService;
 import com.iae.model.Configuration;
 import com.iae.model.StudentResult;
 import com.iae.model.TestStatus;
 import com.iae.service.ConfigurationService;
-import com.iae.model.Configuration;
 import com.iae.service.ProjectService;
-import java.nio.file.Files;
-import javafx.beans.property.SimpleStringProperty;
+
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -20,6 +16,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.nio.file.Files;
 
 public class MainController {
 
@@ -126,6 +123,7 @@ public class MainController {
         if (f != null) expectedOutputField.setText(f.getAbsolutePath());
     }
 
+    @FXML
     private void onRunTests() {
 
         try {
@@ -193,15 +191,16 @@ public class MainController {
 }
     private void applyLanguageDefaults() {
 
-    String language = languageCombo.getValue();
+        String language = languageCombo.getValue();
 
-    Configuration config = configurationService.createConfiguration(
-                    language + " Configuration",
-                    language
-            );
+        Configuration config = configurationService.createConfiguration(
+                language + " Configuration",
+                language
+        );
 
-    applyLanguageDefaults();
-}
+        compileCmdField.setText(config.getCompileCommand());
+        runCmdField.setText(config.getRunCommand());
+    }
     private void info(String title, String body) {
         Alert a = new Alert(Alert.AlertType.INFORMATION, body, ButtonType.OK);
         a.setTitle(title);

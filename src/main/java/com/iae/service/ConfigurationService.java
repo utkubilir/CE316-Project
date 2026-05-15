@@ -25,6 +25,13 @@ public class ConfigurationService {
                 config.setCompiled(true);
             }
 
+            case "c++" -> {
+                config.setSourceFileName("main.cpp");
+                config.setCompileCommand("g++ main.cpp -o main.exe");
+                config.setRunCommand("main.exe");
+                config.setCompiled(true);
+            }
+
             case "java" -> {
                 config.setSourceFileName("Main.java");
                 config.setCompileCommand("javac Main.java");
