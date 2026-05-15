@@ -109,12 +109,60 @@ public class ExecutionEngine {
                                  String expectedOutput) {
 
         String normalizedActual =
-                actualOutput.trim().replace("\r\n", "\n");
+                normalizeOutput(actualOutput);
 
         String normalizedExpected =
-                expectedOutput.trim().replace("\r\n", "\n");
+                normalizeOutput(expectedOutput);
 
         return normalizedActual.equals(normalizedExpected);
+    }
+
+    private String normalizeOutput(String text) {
+
+        return text
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+                .trim()
+                .replaceAll("[ \t]+", " ")
+                .replaceAll("\n+", "\n");
+    }
+
+    private String findMismatchDetails(String actualOutput,
+                                       String expectedOutput) {
+
+        String[] actualLines =
+                normalizeOutput(actualOutput).split("\n");
+
+        String[] expectedLines =
+                normalizeOutput(expectedOutput).split("\n");
+
+        int minLength =
+                Math.min(actualLines.length,
+                        expectedLines.length);
+
+        for (int i = 0; i < minLength; i++) {
+
+            if (!actualLines[i].equals(expectedLines[i])) {
+
+                return "Mismatch at line "
+                        + (i + 1)
+                        + "\nExpected: "
+                        + expectedLines[i]
+                        + "\nFound: "
+                        + actualLines[i];
+            }
+        }
+
+        if (actualLines.length != expectedLines.length) {
+
+            return "Line count mismatch.\n"
+                    + "Expected lines: "
+                    + expectedLines.length
+                    + "\nFound lines: "
+                    + actualLines.length;
+        }
+
+        return "Unknown output mismatch.";
     }
 
     public StudentResult evaluateSubmission(
@@ -170,13 +218,16 @@ public class ExecutionEngine {
             );
         }
 
+        String mismatchDetails =
+                findMismatchDetails(
+                        actualOutput,
+                        expectedOutput
+                );
+
         return new StudentResult(
                 studentId,
                 TestStatus.OUTPUT_MISMATCH,
-                "Expected:\n"
-                        + expectedOutput
-                        + "\n\nFound:\n"
-                        + actualOutput
+                mismatchDetails
         );
     }
 }
