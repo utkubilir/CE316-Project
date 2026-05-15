@@ -95,9 +95,92 @@ public class MainController {
         statusRight.setText("Reports saved to /results/report.log");
     }
 
-    @FXML private void onNewProject() { info("New Project", "Stub — will be wired to ProjectService."); }
-    @FXML private void onOpenProject() { info("Open Project", "Stub — will load a .iae project JSON."); }
-    @FXML private void onSaveProject() { info("Save Project", "Stub — will save current state to JSON."); }
+    @FXML
+    private void onNewProject() {
+        TextInputDialog dialog = new TextInputDialog("New Project");
+        dialog.setTitle("New Project");
+        dialog.setHeaderText("Create a New Project");
+        dialog.setContentText("Please enter project name:");
+
+        dialog.showAndWait().ifPresent(name -> {
+            com.iae.model.Project p = new com.iae.model.Project();
+            p.setName(name);
+            projectService.setCurrentProject(p);
+            
+            submissionFolderField.setText("");
+            resultsData.clear();
+            statusLeft.setText("New project created: " + name);
+        });
+    }
+
+    @FXML
+    private void onOpenProject() {
+        java.util.List<String> names = projectService.getAllProjectNames();
+        if (names.isEmpty()) {
+            info("Open Project", "No saved projects found.");
+            return;
+        }
+
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(names.get(0), names);
+        dialog.setTitle("Open Project");
+        dialog.setHeaderText("Select a project to open");
+        dialog.setContentText("Project:");
+
+        dialog.showAndWait().ifPresent(name -> {
+            com.iae.model.Project p = projectService.loadProject(name);
+            if (p != null) {
+                projectService.setCurrentProject(p);
+                submissionFolderField.setText(p.getSubmissionFolder() != null ? p.getSubmissionFolder() : "");
+                
+                if (p.getConfiguration() != null) {
+                    com.iae.model.Configuration c = p.getConfiguration();
+                    if (c.getLanguage() != null) languageCombo.setValue(c.getLanguage());
+                    compileCmdField.setText(c.getCompileCommand() != null ? c.getCompileCommand() : "");
+                    runCmdField.setText(c.getRunCommand() != null ? c.getRunCommand() : "");
+                    expectedOutputField.setText(c.getExpectedOutputPath() != null ? c.getExpectedOutputPath() : "");
+                }
+                
+                resultsData.clear();
+                if (p.getResults() != null) {
+                    resultsData.addAll(p.getResults());
+                }
+                statusLeft.setText("Project loaded: " + name);
+            } else {
+                info("Error", "Could not load project.");
+            }
+        });
+    }
+
+    @FXML
+    private void onSaveProject() {
+        com.iae.model.Project p = projectService.getCurrentProject();
+        if (p == null) {
+            info("Save Project", "No active project to save. Please create or open a project first.");
+            return;
+        }
+
+        p.setSubmissionFolder(submissionFolderField.getText());
+        
+        com.iae.model.Configuration c = p.getConfiguration();
+        if (c == null) {
+            c = new com.iae.model.Configuration();
+            p.setConfiguration(c);
+        }
+        c.setName(p.getName() + " Config");
+        c.setLanguage(languageCombo.getValue());
+        c.setCompileCommand(compileCmdField.getText());
+        c.setRunCommand(runCmdField.getText());
+        c.setExpectedOutputPath(expectedOutputField.getText());
+        
+        p.setResults(new java.util.ArrayList<>(resultsData));
+
+        try {
+            projectService.saveProject(p);
+            statusLeft.setText("Project saved successfully.");
+        } catch (Exception e) {
+            info("Error", "Failed to save project: " + e.getMessage());
+        }
+    }
     @FXML private void onImportConfig() { info("Import Configuration", "Stub — will import a .cfg.json file."); }
     @FXML private void onExportConfig() { info("Export Configuration", "Stub — will export current config to a file."); }
     @FXML private void onManageConfigs() { info("Manage Configurations", "Stub — dialog coming soon."); }

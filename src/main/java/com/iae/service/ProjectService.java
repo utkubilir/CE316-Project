@@ -3,6 +3,9 @@ package com.iae.service;
 import com.iae.model.Configuration;
 import com.iae.model.StudentResult;
 
+import com.iae.model.Project;
+import com.iae.repository.ProjectRepository;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +17,30 @@ public class ProjectService {
 
     private final ExecutionEngine executionEngine =
             new ExecutionEngine();
+
+    private final ProjectRepository projectRepository = new ProjectRepository();
+    
+    private Project currentProject;
+
+    public void saveProject(Project project) {
+        projectRepository.save(project);
+    }
+
+    public Project loadProject(String name) {
+        return projectRepository.load(name);
+    }
+
+    public List<String> getAllProjectNames() {
+        return projectRepository.getAllProjectNames();
+    }
+
+    public Project getCurrentProject() {
+        return currentProject;
+    }
+
+    public void setCurrentProject(Project currentProject) {
+        this.currentProject = currentProject;
+    }
 
     public List<StudentResult> runEvaluation(
             File submissionsFolder,
