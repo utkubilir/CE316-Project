@@ -1,11 +1,14 @@
 package com.iae.controller;
 
+import com.iae.service.ExecutionEngine;
 import com.iae.service.ConfigurationService;
 import com.iae.model.Configuration;
 import com.iae.model.StudentResult;
 import com.iae.model.TestStatus;
 import com.iae.service.ConfigurationService;
-
+import com.iae.model.Configuration;
+import com.iae.service.ProjectService;
+import java.nio.file.Files;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -41,6 +44,7 @@ public class MainController {
     @FXML private Label statusRight;
 
     private final ObservableList<StudentResult> resultsData = FXCollections.observableArrayList();
+    private final ProjectService projectService =new ProjectService();
     private final ConfigurationService configurationService = new ConfigurationService();
     @FXML
     public void initialize() {
@@ -122,10 +126,71 @@ public class MainController {
         if (f != null) expectedOutputField.setText(f.getAbsolutePath());
     }
 
-    @FXML
     private void onRunTests() {
-        info("Run Tests", "Stub — will extract ZIPs, compile, run, compare, and populate the Test Results table.");
+
+        try {
+
+        File submissionsFolder =
+                new File(submissionFolderField.getText());
+
+        if (!submissionsFolder.exists()) {
+
+            info(
+                    "Error",
+                    "Submission folder does not exist."
+            );
+
+            return;
+        }
+
+        Configuration configuration =
+                configurationService.createConfiguration(
+                        languageCombo.getValue() + " Configuration",
+                        languageCombo.getValue()
+                );
+
+        configuration.setCompileCommand(
+                compileCmdField.getText()
+        );
+
+        configuration.setRunCommand(
+                runCmdField.getText()
+        );
+
+        String expectedOutput =
+                Files.readString(
+                        new File(
+                                expectedOutputField.getText()
+                        ).toPath()
+                );
+
+        resultsData.clear();
+
+        resultsData.addAll(
+                projectService.runEvaluation(
+                        submissionsFolder,
+                        configuration,
+                        expectedOutput
+                )
+        );
+
+        statusLeft.setText(
+                "Evaluation Complete."
+        );
+
+        statusRight.setText(
+                resultsData.size()
+                        + " submissions processed."
+        );
+
+    } catch (Exception e) {
+
+        info(
+                "Execution Error",
+                e.getMessage()
+        );
     }
+}
     private void applyLanguageDefaults() {
 
     String language = languageCombo.getValue();
