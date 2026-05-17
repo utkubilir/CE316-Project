@@ -51,6 +51,20 @@ public class DatabaseHelper {
                     ");";
             stmt.execute(createResultsTable);
 
+            // Standalone, reusable configurations (Requirement #4).
+            // Independent from project-scoped configurations so they survive
+            // across projects and can be picked when creating a new project.
+            String createSavedConfigsTable = "CREATE TABLE IF NOT EXISTS saved_configurations (" +
+                    "name TEXT PRIMARY KEY, " +
+                    "language TEXT, " +
+                    "source_file_name TEXT, " +
+                    "compile_command TEXT, " +
+                    "run_command TEXT, " +
+                    "expected_output_path TEXT, " +
+                    "compiled INTEGER" +
+                    ");";
+            stmt.execute(createSavedConfigsTable);
+
         } catch (SQLException e) {
             System.err.println("Database initialization error: " + e.getMessage());
         }

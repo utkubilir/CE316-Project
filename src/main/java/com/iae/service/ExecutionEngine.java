@@ -6,36 +6,38 @@ import com.iae.model.TestStatus;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+/**
+ * Runs the configuration's compile / run commands against a student's
+ * working directory and compares the program's output to the expected
+ * output (Requirements #7 and #8).
+ */
 public class ExecutionEngine {
 
-    public String compile(File workingDirectory,
-                          String compileCommand) {
+    private static final Pattern TOKEN_PATTERN =
+            Pattern.compile("\"([^\"]*)\"|(\\S+)");
+
+    public String compile(File workingDirectory, String compileCommand) {
+
+        if (compileCommand == null || compileCommand.isBlank()) {
+            return "SUCCESS";
+        }
 
         try {
+            List<String> tokens = resolveTokens(workingDirectory, tokenize(compileCommand));
 
-            ProcessBuilder pb = new ProcessBuilder(
-                    compileCommand.split(" ")
-            );
-
+            ProcessBuilder pb = new ProcessBuilder(tokens);
             pb.directory(workingDirectory);
-
             pb.redirectErrorStream(true);
 
             Process process = pb.start();
 
-            BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream())
-            );
-
-            StringBuilder output = new StringBuilder();
-
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
-            }
+            String output = readAll(process);
 
             int exitCode = process.waitFor();
 
@@ -43,126 +45,52 @@ public class ExecutionEngine {
                 return "SUCCESS";
             }
 
-            return output.toString();
+            return output.isBlank() ? ("Compile failed with exit code " + exitCode) : output;
 
         } catch (Exception e) {
-
-            return e.getMessage();
+            return "Compile failed: " + e.getMessage();
         }
     }
 
-    public String runProgram(File workingDirectory,
-                             String runCommand) {
+    public String runProgram(File workingDirectory, String runCommand) {
+
+        if (runCommand == null || runCommand.isBlank()) {
+            return "RUNTIME_ERROR\nRun command is empty.";
+        }
 
         try {
+            List<String> tokens = resolveTokens(workingDirectory, tokenize(runCommand));
 
-            ProcessBuilder pb = new ProcessBuilder(
-                    runCommand.split(" ")
-            );
-
+            ProcessBuilder pb = new ProcessBuilder(tokens);
             pb.directory(workingDirectory);
-
             pb.redirectErrorStream(true);
 
             Process process = pb.start();
 
-            BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream())
-            );
+            String output = readAll(process);
 
-            StringBuilder output = new StringBuilder();
-
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
-            }
-
-            boolean finished =
-                    process.waitFor(5, TimeUnit.SECONDS);
+            boolean finished = process.waitFor(10, TimeUnit.SECONDS);
 
             if (!finished) {
-
                 process.destroyForcibly();
-
                 return "TIMEOUT";
             }
 
             int exitCode = process.exitValue();
 
             if (exitCode != 0) {
-
-                return "RUNTIME_ERROR\n"
-                        + output;
+                return "RUNTIME_ERROR\nExit code " + exitCode + "\n" + output;
             }
 
-            return output.toString();
+            return output;
 
         } catch (Exception e) {
-
-            return "RUNTIME_ERROR\n"
-                    + e.getMessage();
+            return "RUNTIME_ERROR\n" + e.getMessage();
         }
     }
 
-    public boolean compareOutput(String actualOutput,
-                                 String expectedOutput) {
-
-        String normalizedActual =
-                normalizeOutput(actualOutput);
-
-        String normalizedExpected =
-                normalizeOutput(expectedOutput);
-
-        return normalizedActual.equals(normalizedExpected);
-    }
-
-    private String normalizeOutput(String text) {
-
-        return text
-                .replace("\r\n", "\n")
-                .replace("\r", "\n")
-                .trim()
-                .replaceAll("[ \t]+", " ")
-                .replaceAll("\n+", "\n");
-    }
-
-    private String findMismatchDetails(String actualOutput,
-                                       String expectedOutput) {
-
-        String[] actualLines =
-                normalizeOutput(actualOutput).split("\n");
-
-        String[] expectedLines =
-                normalizeOutput(expectedOutput).split("\n");
-
-        int minLength =
-                Math.min(actualLines.length,
-                        expectedLines.length);
-
-        for (int i = 0; i < minLength; i++) {
-
-            if (!actualLines[i].equals(expectedLines[i])) {
-
-                return "Mismatch at line "
-                        + (i + 1)
-                        + "\nExpected: "
-                        + expectedLines[i]
-                        + "\nFound: "
-                        + actualLines[i];
-            }
-        }
-
-        if (actualLines.length != expectedLines.length) {
-
-            return "Line count mismatch.\n"
-                    + "Expected lines: "
-                    + expectedLines.length
-                    + "\nFound lines: "
-                    + actualLines.length;
-        }
-
-        return "Unknown output mismatch.";
+    public boolean compareOutput(String actualOutput, String expectedOutput) {
+        return normalizeOutput(actualOutput).equals(normalizeOutput(expectedOutput));
     }
 
     public StudentResult evaluateSubmission(
@@ -173,61 +101,124 @@ public class ExecutionEngine {
             String expectedOutput
     ) {
 
-        String compileResult =
-                compile(workingDirectory, compileCommand);
+        String compileResult = compile(workingDirectory, compileCommand);
 
         if (!compileResult.equals("SUCCESS")) {
-
-            return new StudentResult(
-                    studentId,
-                    TestStatus.COMPILATION_ERROR,
-                    compileResult
-            );
+            return new StudentResult(studentId, TestStatus.COMPILATION_ERROR, compileResult);
         }
 
-        String actualOutput =
-                runProgram(workingDirectory, runCommand);
+        String actualOutput = runProgram(workingDirectory, runCommand);
 
         if (actualOutput.equals("TIMEOUT")) {
-
-            return new StudentResult(
-                    studentId,
-                    TestStatus.TIMEOUT,
-                    "Program execution timed out."
-            );
+            return new StudentResult(studentId, TestStatus.TIMEOUT, "Program execution timed out.");
         }
 
         if (actualOutput.startsWith("RUNTIME_ERROR")) {
-
-            return new StudentResult(
-                    studentId,
-                    TestStatus.RUNTIME_ERROR,
-                    actualOutput
-            );
+            return new StudentResult(studentId, TestStatus.RUNTIME_ERROR, actualOutput);
         }
 
-        boolean matches =
-                compareOutput(actualOutput, expectedOutput);
-
-        if (matches) {
-
-            return new StudentResult(
-                    studentId,
-                    TestStatus.PASSED,
-                    ""
-            );
+        if (compareOutput(actualOutput, expectedOutput)) {
+            return new StudentResult(studentId, TestStatus.PASSED, "");
         }
 
-        String mismatchDetails =
-                findMismatchDetails(
-                        actualOutput,
-                        expectedOutput
-                );
+        String mismatchDetails = findMismatchDetails(actualOutput, expectedOutput);
+        return new StudentResult(studentId, TestStatus.OUTPUT_MISMATCH, mismatchDetails);
+    }
 
-        return new StudentResult(
-                studentId,
-                TestStatus.OUTPUT_MISMATCH,
-                mismatchDetails
-        );
+    // ----- helpers ---------------------------------------------------------
+
+    /** Splits a command string respecting double-quoted arguments. */
+    static List<String> tokenize(String cmd) {
+        List<String> tokens = new ArrayList<>();
+        if (cmd == null) return tokens;
+        Matcher m = TOKEN_PATTERN.matcher(cmd);
+        while (m.find()) {
+            tokens.add(m.group(1) != null ? m.group(1) : m.group(2));
+        }
+        return tokens;
+    }
+
+    /**
+     * Resolves the first token to an absolute path if it refers to a file
+     * inside the working directory. ProcessBuilder on Windows does NOT
+     * search the working directory for executables, so a command like
+     * "main.exe" fails unless we expand it to its absolute path.
+     * Also tries appending ".exe" if the raw name is not found.
+     */
+    static List<String> resolveTokens(File workingDirectory, List<String> tokens) {
+        if (tokens.isEmpty() || workingDirectory == null) {
+            return tokens;
+        }
+
+        String first = tokens.get(0);
+        File asIs = new File(workingDirectory, first);
+        if (asIs.isFile()) {
+            tokens.set(0, asIs.getAbsolutePath());
+            return tokens;
+        }
+
+        File withExe = new File(workingDirectory, first + ".exe");
+        if (withExe.isFile()) {
+            tokens.set(0, withExe.getAbsolutePath());
+            return tokens;
+        }
+
+        // Tolerate "./main" / ".\main" style invocations on Windows.
+        if (first.startsWith("./") || first.startsWith(".\\")) {
+            String stripped = first.substring(2);
+            File s = new File(workingDirectory, stripped);
+            if (s.isFile()) {
+                tokens.set(0, s.getAbsolutePath());
+            } else {
+                File se = new File(workingDirectory, stripped + ".exe");
+                if (se.isFile()) tokens.set(0, se.getAbsolutePath());
+            }
+        }
+
+        return tokens;
+    }
+
+    private String readAll(Process process) throws Exception {
+        StringBuilder output = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+        }
+        return output.toString();
+    }
+
+    private String normalizeOutput(String text) {
+        if (text == null) return "";
+        return text
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+                .trim()
+                .replaceAll("[ \t]+", " ")
+                .replaceAll("\n+", "\n");
+    }
+
+    private String findMismatchDetails(String actualOutput, String expectedOutput) {
+        String[] actualLines = normalizeOutput(actualOutput).split("\n");
+        String[] expectedLines = normalizeOutput(expectedOutput).split("\n");
+        int minLength = Math.min(actualLines.length, expectedLines.length);
+
+        for (int i = 0; i < minLength; i++) {
+            if (!actualLines[i].equals(expectedLines[i])) {
+                return "Mismatch at line " + (i + 1)
+                        + "\nExpected: " + expectedLines[i]
+                        + "\nFound:    " + actualLines[i];
+            }
+        }
+
+        if (actualLines.length != expectedLines.length) {
+            return "Line count mismatch.\n"
+                    + "Expected lines: " + expectedLines.length
+                    + "\nFound lines:    " + actualLines.length;
+        }
+
+        return "Output mismatch (no specific line difference detected).";
     }
 }
