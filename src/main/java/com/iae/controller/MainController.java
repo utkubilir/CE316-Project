@@ -2,21 +2,29 @@ package com.iae.controller;
 
 import com.iae.model.Configuration;
 import com.iae.model.StudentResult;
+import com.iae.model.SubmissionInfo;
 import com.iae.model.TestStatus;
 import com.iae.service.ConfigurationService;
+import com.iae.service.FileManager;
 import com.iae.service.ProjectService;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 public class MainController {
 
@@ -32,28 +40,45 @@ public class MainController {
     @FXML private TableColumn<StudentResult, TestStatus> colStatus;
     @FXML private TableColumn<StudentResult, String> colDetails;
 
-    @FXML private TableView<Object> submissionsTable;
-    @FXML private TableColumn<Object, String> colSubZip;
-    @FXML private TableColumn<Object, String> colSubStudent;
-    @FXML private TableColumn<Object, String> colSubSize;
+    @FXML private TableView<SubmissionInfo> submissionsTable;
+    @FXML private TableColumn<SubmissionInfo, String> colSubZip;
+    @FXML private TableColumn<SubmissionInfo, String> colSubStudent;
+    @FXML private TableColumn<SubmissionInfo, String> colSubSize;
 
     @FXML private Label statusLeft;
     @FXML private Label statusRight;
 
     private final ObservableList<StudentResult> resultsData = FXCollections.observableArrayList();
-    private final ProjectService projectService =new ProjectService();
+    private final ObservableList<SubmissionInfo> submissionsData = FXCollections.observableArrayList();
+    private final ProjectService projectService = new ProjectService();
     private final ConfigurationService configurationService = new ConfigurationService();
+    private final FileManager fileManager = new FileManager();
+
+    /**
+     * Guards against the language ComboBox listener overwriting fields that
+     * we set programmatically (e.g. when loading a saved configuration into
+     * the form).
+     */
+    private boolean suppressLanguageListener = false;
+
     @FXML
     public void initialize() {
+        // Seed default Java/C/C++/Python configurations on first run so the
+        // Manage Configurations dialog is never empty. (Requirement #4)
+        configurationService.seedDefaultsIfEmpty();
+
         languageCombo.setItems(FXCollections.observableArrayList("C", "C++", "Java", "Python"));
         languageCombo.getSelectionModel().select("C");
-        languageCombo.setOnAction(event -> applyLanguageDefaults());
+        languageCombo.setOnAction(event -> {
+            if (!suppressLanguageListener) applyLanguageDefaults();
+        });
 
-        compileCmdField.setText("/usr/bin/gcc main.c -o main");
-        runCmdField.setText("./main arg1 arg2 arg3");
-        expectedOutputField.setText("expected_output.txt");
-        submissionFolderField.setText("/path/to/student_submissions");
+        // Start from the C defaults instead of placeholder strings.
+        applyLanguageDefaults();
+        expectedOutputField.setText("");
+        submissionFolderField.setText("");
 
+        // ----- Results table (Requirement #9) -----
         colStudentId.setCellValueFactory(new PropertyValueFactory<>("studentId"));
         colDetails.setCellValueFactory(new PropertyValueFactory<>("details"));
         colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
@@ -75,38 +100,37 @@ public class MainController {
         });
 
         resultsTable.setItems(resultsData);
-        
+
         resultsTable.setRowFactory(tv -> {
             TableRow<StudentResult> row = new TableRow<>();
             row.setOnMouseClicked(event -> {
-                if (event.getClickCount() == 2 && (!row.isEmpty()) ) {
-                    StudentResult rowData = row.getItem();
-                    showResultDetailsDialog(rowData);
+                if (event.getClickCount() == 2 && !row.isEmpty()) {
+                    showResultDetailsDialog(row.getItem());
                 }
             });
             return row;
         });
 
-        loadMockResults();
+        // ----- Submissions table (supports Requirement #9 preview) -----
+        colSubZip.setCellValueFactory(new PropertyValueFactory<>("fileName"));
+        colSubStudent.setCellValueFactory(new PropertyValueFactory<>("studentId"));
+        colSubSize.setCellValueFactory(new PropertyValueFactory<>("size"));
+        submissionsTable.setItems(submissionsData);
+
+        // Refresh the submissions table whenever the folder path changes,
+        // regardless of whether it was typed or set via the Browse button.
+        submissionFolderField.textProperty().addListener(
+                (obs, oldVal, newVal) -> refreshSubmissionsTable());
 
         statusLeft.setText("Ready.");
         statusRight.setText("");
     }
 
-    private void loadMockResults() {
-        resultsData.addAll(
-                new StudentResult("2021001", TestStatus.PASSED, ""),
-                new StudentResult("2021002", TestStatus.COMPILATION_ERROR, "GCC Error: missing semicolon"),
-                new StudentResult("2021003", TestStatus.PASSED, ""),
-                new StudentResult("2021004", TestStatus.OUTPUT_MISMATCH,
-                        "Output Mismatch\nExpected: apple, banana, cherry\nFound: apple, cherry, banana"),
-                new StudentResult("2021005", TestStatus.PASSED, ""),
-                new StudentResult("2021006", TestStatus.RUNTIME_ERROR, "Runtime Error\nSegmentation fault")
-        );
-        statusLeft.setText("Processing Complete, " + resultsData.size() + " Students Tested.");
-        statusRight.setText("Reports saved to /results/report.log");
-    }
-
+    // ---------------------------------------------------------------------
+    // Requirement #3: create a project that uses an existing or new
+    // configuration. After the user supplies a project name we let them pick
+    // a saved configuration (if any) or start from a language template.
+    // ---------------------------------------------------------------------
     @FXML
     private void onNewProject() {
         TextInputDialog dialog = new TextInputDialog("New Project");
@@ -114,20 +138,84 @@ public class MainController {
         dialog.setHeaderText("Create a New Project");
         dialog.setContentText("Please enter project name:");
 
-        dialog.showAndWait().ifPresent(name -> {
-            com.iae.model.Project p = new com.iae.model.Project();
-            p.setName(name);
-            projectService.setCurrentProject(p);
-            
-            submissionFolderField.setText("");
-            resultsData.clear();
-            statusLeft.setText("New project created: " + name);
-        });
+        Optional<String> nameOpt = dialog.showAndWait();
+        if (nameOpt.isEmpty() || nameOpt.get().trim().isEmpty()) {
+            return;
+        }
+        String name = nameOpt.get().trim();
+
+        com.iae.model.Project p = new com.iae.model.Project();
+        p.setName(name);
+
+        Configuration chosen = promptForProjectConfiguration();
+        if (chosen != null) {
+            applyConfigurationToForm(chosen);
+            p.setConfiguration(chosen);
+        }
+
+        projectService.setCurrentProject(p);
+        submissionFolderField.setText("");
+        resultsData.clear();
+        statusLeft.setText("New project created: " + name);
+    }
+
+    /**
+     * Lets the user pick an existing saved configuration or start a new one
+     * from a language template.
+     */
+    private Configuration promptForProjectConfiguration() {
+        List<String> savedNames = configurationService.listConfigurationNames();
+
+        final String createNew = "[ Create New Configuration ]";
+        List<String> choices = new ArrayList<>();
+        choices.add(createNew);
+        choices.addAll(savedNames);
+
+        ChoiceDialog<String> picker = new ChoiceDialog<>(choices.get(0), choices);
+        picker.setTitle("Project Configuration");
+        picker.setHeaderText("Use existing configuration or create a new one?");
+        picker.setContentText("Configuration:");
+
+        Optional<String> result = picker.showAndWait();
+        if (result.isEmpty()) {
+            return null;
+        }
+
+        if (createNew.equals(result.get())) {
+            return showCreateConfigurationDialog();
+        }
+
+        return configurationService.getConfiguration(result.get());
+    }
+
+    private void applyConfigurationToForm(Configuration c) {
+        if (c == null) return;
+        suppressLanguageListener = true;
+        try {
+            if (c.getLanguage() != null) languageCombo.setValue(c.getLanguage());
+            compileCmdField.setText(c.getCompileCommand() != null ? c.getCompileCommand() : "");
+            runCmdField.setText(c.getRunCommand() != null ? c.getRunCommand() : "");
+            if (c.getExpectedOutputPath() != null) {
+                expectedOutputField.setText(c.getExpectedOutputPath());
+            }
+        } finally {
+            suppressLanguageListener = false;
+        }
+    }
+
+    private Configuration readConfigurationFromForm(String name) {
+        String language = languageCombo.getValue();
+        Configuration cfg = configurationService.createConfiguration(name, language);
+        cfg.setCompileCommand(compileCmdField.getText());
+        cfg.setRunCommand(runCmdField.getText());
+        cfg.setExpectedOutputPath(expectedOutputField.getText());
+        cfg.setCompiled(cfg.getCompileCommand() != null && !cfg.getCompileCommand().isBlank());
+        return cfg;
     }
 
     @FXML
     private void onOpenProject() {
-        java.util.List<String> names = projectService.getAllProjectNames();
+        List<String> names = projectService.getAllProjectNames();
         if (names.isEmpty()) {
             info("Open Project", "No saved projects found.");
             return;
@@ -143,15 +231,9 @@ public class MainController {
             if (p != null) {
                 projectService.setCurrentProject(p);
                 submissionFolderField.setText(p.getSubmissionFolder() != null ? p.getSubmissionFolder() : "");
-                
                 if (p.getConfiguration() != null) {
-                    com.iae.model.Configuration c = p.getConfiguration();
-                    if (c.getLanguage() != null) languageCombo.setValue(c.getLanguage());
-                    compileCmdField.setText(c.getCompileCommand() != null ? c.getCompileCommand() : "");
-                    runCmdField.setText(c.getRunCommand() != null ? c.getRunCommand() : "");
-                    expectedOutputField.setText(c.getExpectedOutputPath() != null ? c.getExpectedOutputPath() : "");
+                    applyConfigurationToForm(p.getConfiguration());
                 }
-                
                 resultsData.clear();
                 if (p.getResults() != null) {
                     resultsData.addAll(p.getResults());
@@ -172,10 +254,10 @@ public class MainController {
         }
 
         p.setSubmissionFolder(submissionFolderField.getText());
-        
-        com.iae.model.Configuration c = p.getConfiguration();
+
+        Configuration c = p.getConfiguration();
         if (c == null) {
-            c = new com.iae.model.Configuration();
+            c = new Configuration();
             p.setConfiguration(c);
         }
         c.setName(p.getName() + " Config");
@@ -183,8 +265,8 @@ public class MainController {
         c.setCompileCommand(compileCmdField.getText());
         c.setRunCommand(runCmdField.getText());
         c.setExpectedOutputPath(expectedOutputField.getText());
-        
-        p.setResults(new java.util.ArrayList<>(resultsData));
+
+        p.setResults(new ArrayList<>(resultsData));
 
         try {
             projectService.saveProject(p);
@@ -193,11 +275,164 @@ public class MainController {
             info("Error", "Failed to save project: " + e.getMessage());
         }
     }
-    @FXML private void onImportConfig() { info("Import Configuration", "Stub — will import a .cfg.json file."); }
-    @FXML private void onExportConfig() { info("Export Configuration", "Stub — will export current config to a file."); }
-    @FXML private void onManageConfigs() { info("Manage Configurations", "Stub — dialog coming soon."); }
-    @FXML private void onSaveConfig() { info("Save Configuration", "Stub — persists configuration fields."); }
-    @FXML private void onShowManual() { info("Manual", "Stub — will open the HTML manual."); }
+
+    @FXML private void onImportConfig() { info("Import Configuration", "Out of scope for Milestone 2."); }
+    @FXML private void onExportConfig() { info("Export Configuration", "Out of scope for Milestone 2."); }
+
+    // ---------------------------------------------------------------------
+    // Requirement #4: create, edit and remove a configuration.
+    // ---------------------------------------------------------------------
+    @FXML
+    private void onSaveConfig() {
+        String currentLang = languageCombo.getValue();
+        String defaultName = currentLang != null ? currentLang + " Configuration" : "New Configuration";
+
+        TextInputDialog dialog = new TextInputDialog(defaultName);
+        dialog.setTitle("Save Configuration");
+        dialog.setHeaderText("Save current configuration as...");
+        dialog.setContentText("Name:");
+
+        dialog.showAndWait().ifPresent(name -> {
+            String trimmed = name.trim();
+            if (trimmed.isEmpty()) {
+                info("Save Configuration", "Configuration name cannot be empty.");
+                return;
+            }
+            try {
+                Configuration cfg = readConfigurationFromForm(trimmed);
+                configurationService.saveConfiguration(cfg);
+                statusLeft.setText("Configuration saved: " + trimmed);
+            } catch (Exception e) {
+                info("Error", "Could not save configuration: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Create-new-configuration dialog. Asks for a name and language; the
+     * compile/run/source defaults for that language are filled in
+     * automatically. The result is persisted and returned to the caller.
+     */
+    private Configuration showCreateConfigurationDialog() {
+        Dialog<Configuration> dialog = new Dialog<>();
+        dialog.setTitle("New Configuration");
+        dialog.setHeaderText("Create a new configuration");
+
+        ButtonType createBtn = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(createBtn, ButtonType.CANCEL);
+
+        TextField nameField = new TextField();
+        nameField.setPromptText("e.g. C Configuration");
+        ComboBox<String> langBox = new ComboBox<>(
+                FXCollections.observableArrayList("C", "C++", "Java", "Python"));
+        langBox.getSelectionModel().select("C");
+        nameField.setText(langBox.getValue() + " Configuration");
+        langBox.setOnAction(e -> nameField.setText(langBox.getValue() + " Configuration"));
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(10));
+        grid.add(new Label("Name:"), 0, 0);
+        grid.add(nameField, 1, 0);
+        grid.add(new Label("Language:"), 0, 1);
+        grid.add(langBox, 1, 1);
+        dialog.getDialogPane().setContent(grid);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(createBtn);
+        okButton.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
+            if (nameField.getText() == null || nameField.getText().trim().isEmpty()) {
+                info("New Configuration", "Configuration name cannot be empty.");
+                evt.consume();
+            }
+        });
+
+        dialog.setResultConverter(button -> {
+            if (button == createBtn) {
+                Configuration cfg = configurationService.createConfiguration(
+                        nameField.getText().trim(), langBox.getValue());
+                configurationService.saveConfiguration(cfg);
+                return cfg;
+            }
+            return null;
+        });
+
+        return dialog.showAndWait().orElse(null);
+    }
+
+    @FXML
+    private void onManageConfigs() {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Manage Configurations");
+        dialog.setHeaderText("Saved configurations");
+
+        ListView<String> list = new ListView<>();
+        list.setItems(FXCollections.observableArrayList(configurationService.listConfigurationNames()));
+        list.setPrefSize(360, 240);
+
+        ButtonType newBtnType = new ButtonType("New...", ButtonBar.ButtonData.LEFT);
+        ButtonType loadBtnType = new ButtonType("Load / Edit", ButtonBar.ButtonData.OK_DONE);
+        ButtonType deleteBtnType = new ButtonType("Delete", ButtonBar.ButtonData.OTHER);
+        ButtonType closeBtnType = new ButtonType("Close", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes()
+                .addAll(newBtnType, loadBtnType, deleteBtnType, closeBtnType);
+
+        VBox box = new VBox(8, new Label("Select a configuration:"), list);
+        box.setPadding(new Insets(10));
+        dialog.getDialogPane().setContent(box);
+
+        // New
+        Button newBtn = (Button) dialog.getDialogPane().lookupButton(newBtnType);
+        newBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
+            Configuration created = showCreateConfigurationDialog();
+            if (created != null) {
+                list.setItems(FXCollections.observableArrayList(configurationService.listConfigurationNames()));
+                list.getSelectionModel().select(created.getName());
+                statusLeft.setText("Configuration created: " + created.getName());
+            }
+            evt.consume();
+        });
+
+        // Delete
+        Button deleteBtn = (Button) dialog.getDialogPane().lookupButton(deleteBtnType);
+        deleteBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
+            String selected = list.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                info("Delete Configuration", "Please select a configuration first.");
+            } else if (confirm("Delete Configuration", "Delete '" + selected + "'?")) {
+                configurationService.removeConfiguration(selected);
+                list.getItems().remove(selected);
+                statusLeft.setText("Configuration deleted: " + selected);
+            }
+            evt.consume();
+        });
+
+        // Load / Edit
+        Button loadBtn = (Button) dialog.getDialogPane().lookupButton(loadBtnType);
+        loadBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
+            String selected = list.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                info("Load Configuration", "Please select a configuration first.");
+                evt.consume();
+                return;
+            }
+            Configuration cfg = configurationService.getConfiguration(selected);
+            if (cfg == null) {
+                info("Load Configuration", "Configuration not found.");
+                evt.consume();
+                return;
+            }
+            applyConfigurationToForm(cfg);
+            com.iae.model.Project current = projectService.getCurrentProject();
+            if (current != null) current.setConfiguration(cfg);
+            statusLeft.setText("Configuration loaded: " + selected
+                    + " — edit fields and use 'Save Config' to update.");
+        });
+
+        dialog.showAndWait();
+    }
+
+    @FXML private void onShowManual() { info("Manual", "Out of scope for Milestone 2."); }
     @FXML private void onAbout() { info("About", "CE316 Integrated Assignment Environment\nVersion 1.0.0"); }
     @FXML private void onExit() { ((Stage) runTestsBtn.getScene().getWindow()).close(); }
 
@@ -206,7 +441,10 @@ public class MainController {
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle("Select Submission Folder");
         File dir = chooser.showDialog(runTestsBtn.getScene().getWindow());
-        if (dir != null) submissionFolderField.setText(dir.getAbsolutePath());
+        if (dir != null) {
+            // Triggers the text listener which refreshes the submissions table.
+            submissionFolderField.setText(dir.getAbsolutePath());
+        }
     }
 
     @FXML
@@ -218,84 +456,93 @@ public class MainController {
         if (f != null) expectedOutputField.setText(f.getAbsolutePath());
     }
 
+    /** Scan the current submissions folder and refresh the Student Submissions table. */
+    private void refreshSubmissionsTable() {
+        submissionsData.clear();
+        String path = submissionFolderField.getText();
+        if (path == null || path.isBlank()) return;
+
+        File folder = new File(path);
+        if (!folder.isDirectory()) return;
+
+        List<File> zips = fileManager.discoverZipFiles(folder);
+        for (File zip : zips) {
+            String name = zip.getName();
+            String studentId = name.contains(".") ? name.substring(0, name.lastIndexOf('.')) : name;
+            String size = humanReadableSize(zip.length());
+            submissionsData.add(new SubmissionInfo(name, studentId, size));
+        }
+        statusRight.setText(submissionsData.size() + " submission(s) found.");
+    }
+
+    private String humanReadableSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        double kb = bytes / 1024.0;
+        if (kb < 1024) return String.format("%.1f KB", kb);
+        double mb = kb / 1024.0;
+        return String.format("%.2f MB", mb);
+    }
+
+    // ---------------------------------------------------------------------
+    // Requirements #7 (compile/run), #8 (output compare), #9 (display).
+    // ---------------------------------------------------------------------
     @FXML
     private void onRunTests() {
-
         try {
+            File submissionsFolder = new File(submissionFolderField.getText());
+            if (!submissionsFolder.exists() || !submissionsFolder.isDirectory()) {
+                info("Error", "Submission folder does not exist or is not a folder.");
+                return;
+            }
 
-        File submissionsFolder =
-                new File(submissionFolderField.getText());
+            String lang = languageCombo.getValue();
+            if (lang == null || lang.isBlank()) {
+                info("Error", "Please select a language.");
+                return;
+            }
 
-        if (!submissionsFolder.exists()) {
+            Configuration configuration = configurationService.createConfiguration(
+                    lang + " Configuration", lang);
+            configuration.setCompileCommand(compileCmdField.getText());
+            configuration.setRunCommand(runCmdField.getText());
+            configuration.setCompiled(compileCmdField.getText() != null
+                    && !compileCmdField.getText().isBlank());
 
-            info(
-                    "Error",
-                    "Submission folder does not exist."
-            );
+            String expectedPath = expectedOutputField.getText();
+            if (expectedPath == null || expectedPath.isBlank()) {
+                info("Error", "Please select an expected output file.");
+                return;
+            }
+            File expectedFile = new File(expectedPath);
+            if (!expectedFile.isFile()) {
+                info("Error", "Expected output file not found:\n" + expectedPath);
+                return;
+            }
+            String expectedOutput = Files.readString(expectedFile.toPath());
 
-            return;
+            resultsData.clear();
+            List<StudentResult> results = projectService.runEvaluation(
+                    submissionsFolder, configuration, expectedOutput);
+            resultsData.addAll(results);
+
+            long passed = results.stream().filter(r -> r.getStatus().isPassed()).count();
+            statusLeft.setText("Evaluation complete: " + passed + " / " + results.size() + " passed.");
+            statusRight.setText(results.size() + " submissions processed.");
+
+        } catch (Exception e) {
+            info("Execution Error", e.getMessage() != null ? e.getMessage() : e.toString());
         }
-
-        Configuration configuration =
-                configurationService.createConfiguration(
-                        languageCombo.getValue() + " Configuration",
-                        languageCombo.getValue()
-                );
-
-        configuration.setCompileCommand(
-                compileCmdField.getText()
-        );
-
-        configuration.setRunCommand(
-                runCmdField.getText()
-        );
-
-        String expectedOutput =
-                Files.readString(
-                        new File(
-                                expectedOutputField.getText()
-                        ).toPath()
-                );
-
-        resultsData.clear();
-
-        resultsData.addAll(
-                projectService.runEvaluation(
-                        submissionsFolder,
-                        configuration,
-                        expectedOutput
-                )
-        );
-
-        statusLeft.setText(
-                "Evaluation Complete."
-        );
-
-        statusRight.setText(
-                resultsData.size()
-                        + " submissions processed."
-        );
-
-    } catch (Exception e) {
-
-        info(
-                "Execution Error",
-                e.getMessage()
-        );
     }
-}
+
     private void applyLanguageDefaults() {
-
         String language = languageCombo.getValue();
-
-        Configuration config = configurationService.createConfiguration(
-                language + " Configuration",
-                language
-        );
-
-        compileCmdField.setText(config.getCompileCommand());
-        runCmdField.setText(config.getRunCommand());
+        if (language == null) return;
+        Configuration template = configurationService.createConfiguration(
+                language + " Configuration", language);
+        compileCmdField.setText(template.getCompileCommand());
+        runCmdField.setText(template.getRunCommand());
     }
+
     private void info(String title, String body) {
         Alert a = new Alert(Alert.AlertType.INFORMATION, body, ButtonType.OK);
         a.setTitle(title);
@@ -303,17 +550,25 @@ public class MainController {
         a.showAndWait();
     }
 
+    private boolean confirm(String title, String body) {
+        Alert a = new Alert(Alert.AlertType.CONFIRMATION, body, ButtonType.OK, ButtonType.CANCEL);
+        a.setTitle(title);
+        a.setHeaderText(title);
+        return a.showAndWait().filter(b -> b == ButtonType.OK).isPresent();
+    }
+
     private void showResultDetailsDialog(StudentResult result) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Student Result Details");
-        alert.setHeaderText("Result for Student: " + result.getStudentId() + "\nStatus: " + result.getStatus().display());
-        
+        alert.setHeaderText("Result for Student: " + result.getStudentId()
+                + "\nStatus: " + result.getStatus().display());
+
         TextArea textArea = new TextArea(result.getDetails());
         textArea.setEditable(false);
         textArea.setWrapText(true);
         textArea.setPrefWidth(500);
         textArea.setPrefHeight(300);
-        
+
         alert.getDialogPane().setContent(textArea);
         alert.showAndWait();
     }
