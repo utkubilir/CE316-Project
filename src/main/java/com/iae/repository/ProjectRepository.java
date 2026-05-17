@@ -156,6 +156,38 @@ public class ProjectRepository {
         return project;
     }
 
+    public void delete(String projectName) {
+        if (projectName == null || projectName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Project name cannot be empty");
+        }
+
+        try (Connection conn = DatabaseHelper.getConnection()) {
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement pstmt = conn.prepareStatement(
+                    "DELETE FROM configurations WHERE project_name = ?;")) {
+                pstmt.setString(1, projectName);
+                pstmt.executeUpdate();
+            }
+
+            try (PreparedStatement pstmt = conn.prepareStatement(
+                    "DELETE FROM results WHERE project_name = ?;")) {
+                pstmt.setString(1, projectName);
+                pstmt.executeUpdate();
+            }
+
+            try (PreparedStatement pstmt = conn.prepareStatement(
+                    "DELETE FROM projects WHERE name = ?;")) {
+                pstmt.setString(1, projectName);
+                pstmt.executeUpdate();
+            }
+
+            conn.commit();
+        } catch (SQLException e) {
+            System.err.println("Error deleting project: " + e.getMessage());
+        }
+    }
+
     public List<String> getAllProjectNames() {
         List<String> names = new ArrayList<>();
         String query = "SELECT name FROM projects;";

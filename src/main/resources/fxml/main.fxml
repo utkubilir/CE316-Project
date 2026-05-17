@@ -37,6 +37,7 @@
                         <MenuItem text="New Project" onAction="#onNewProject"/>
                         <MenuItem text="Open Project..." onAction="#onOpenProject"/>
                         <MenuItem text="Save Project" onAction="#onSaveProject"/>
+                        <MenuItem text="Delete Project..." onAction="#onDeleteProject"/>
                         <SeparatorMenuItem/>
                         <MenuItem text="Import Configuration..." onAction="#onImportConfig"/>
                         <MenuItem text="Export Configuration..." onAction="#onExportConfig"/>
@@ -66,6 +67,7 @@
                 <Button text="New Project" maxWidth="Infinity" styleClass="side-btn" onAction="#onNewProject"/>
                 <Button text="Open Project" maxWidth="Infinity" styleClass="side-btn" onAction="#onOpenProject"/>
                 <Button text="Save Project" maxWidth="Infinity" styleClass="side-btn" onAction="#onSaveProject"/>
+                <Button text="Delete Project" maxWidth="Infinity" styleClass="side-btn-secondary" onAction="#onDeleteProject"/>
 
                 <Separator/>
 
@@ -101,23 +103,28 @@
                                                 <RowConstraints/>
                                                 <RowConstraints/>
                                                 <RowConstraints/>
+                                                <RowConstraints/>
                                             </rowConstraints>
 
                                             <Label text="Language:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
                                             <ComboBox fx:id="languageCombo" GridPane.rowIndex="0" GridPane.columnIndex="1" maxWidth="220"/>
 
-                                            <Label text="Compile Command:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                                            <TextField fx:id="compileCmdField" promptText="/usr/bin/gcc main.c -o main"
+                                            <Label text="Source File:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                                            <TextField fx:id="sourceFileField" promptText="main.c"
                                                        GridPane.rowIndex="1" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
 
-                                            <Label text="Run Command:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-                                            <TextField fx:id="runCmdField" promptText="./main arg1 arg2 arg3"
+                                            <Label text="Compile Command:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                                            <TextField fx:id="compileCmdField" promptText="/usr/bin/gcc main.c -o main"
                                                        GridPane.rowIndex="2" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
 
-                                            <Label text="Expected Output File:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                                            <Label text="Run Command:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                                            <TextField fx:id="runCmdField" promptText="./main arg1 arg2 arg3"
+                                                       GridPane.rowIndex="3" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+                                            <Label text="Expected Output File:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
                                             <TextField fx:id="expectedOutputField" promptText="expected_output.txt"
-                                                       GridPane.rowIndex="3" GridPane.columnIndex="1"/>
-                                            <Button text="Browse..." GridPane.rowIndex="3" GridPane.columnIndex="2"
+                                                       GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                                            <Button text="Browse..." GridPane.rowIndex="4" GridPane.columnIndex="2"
                                                     maxWidth="Infinity" onAction="#onBrowseExpectedOutput"/>
                                         </GridPane>
 

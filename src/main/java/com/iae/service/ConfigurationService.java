@@ -3,7 +3,10 @@ package com.iae.service;
 import com.iae.model.Configuration;
 import com.iae.repository.ConfigurationRepository;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Service for working with Configurations.
@@ -86,8 +89,31 @@ public class ConfigurationService {
         return repository.findAll();
     }
 
+    public Configuration getFirstConfigurationByLanguage(String language) {
+        if (language == null) {
+            return null;
+        }
+        for (Configuration config : repository.findAll()) {
+            if (language.equals(config.getLanguage())) {
+                return config;
+            }
+        }
+        return null;
+    }
+
     public List<String> listConfigurationNames() {
         return repository.findAllNames();
+    }
+
+    public List<String> listConfiguredLanguages() {
+        Set<String> languages = new LinkedHashSet<>();
+        for (Configuration config : repository.findAll()) {
+            String language = config.getLanguage();
+            if (language != null && !language.isBlank()) {
+                languages.add(language);
+            }
+        }
+        return languages.stream().collect(Collectors.toList());
     }
 
     /**

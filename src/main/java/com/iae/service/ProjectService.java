@@ -30,6 +30,13 @@ public class ProjectService {
         return projectRepository.load(name);
     }
 
+    public void deleteProject(String name) {
+        projectRepository.delete(name);
+        if (currentProject != null && name != null && name.equals(currentProject.getName())) {
+            currentProject = null;
+        }
+    }
+
     public List<String> getAllProjectNames() {
         return projectRepository.getAllProjectNames();
     }

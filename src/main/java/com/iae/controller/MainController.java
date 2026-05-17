@@ -30,6 +30,7 @@ public class MainController {
 
     @FXML private TextField submissionFolderField;
     @FXML private ComboBox<String> languageCombo;
+    @FXML private TextField sourceFileField;
     @FXML private TextField compileCmdField;
     @FXML private TextField runCmdField;
     @FXML private TextField expectedOutputField;
@@ -67,13 +68,12 @@ public class MainController {
         // Manage Configurations dialog is never empty. (Requirement #4)
         configurationService.seedDefaultsIfEmpty();
 
-        languageCombo.setItems(FXCollections.observableArrayList("C", "C++", "Java", "Python"));
-        languageCombo.getSelectionModel().select("C");
+        refreshLanguageChoices();
         languageCombo.setOnAction(event -> {
             if (!suppressLanguageListener) applyLanguageDefaults();
         });
 
-        // Start from the C defaults instead of placeholder strings.
+        // Start from the first saved configuration language.
         applyLanguageDefaults();
         expectedOutputField.setText("");
         submissionFolderField.setText("");
@@ -193,6 +193,7 @@ public class MainController {
         suppressLanguageListener = true;
         try {
             if (c.getLanguage() != null) languageCombo.setValue(c.getLanguage());
+            sourceFileField.setText(c.getSourceFileName() != null ? c.getSourceFileName() : "");
             compileCmdField.setText(c.getCompileCommand() != null ? c.getCompileCommand() : "");
             runCmdField.setText(c.getRunCommand() != null ? c.getRunCommand() : "");
             if (c.getExpectedOutputPath() != null) {
@@ -205,7 +206,8 @@ public class MainController {
 
     private Configuration readConfigurationFromForm(String name) {
         String language = languageCombo.getValue();
-        Configuration cfg = configurationService.createConfiguration(name, language);
+        Configuration cfg = new Configuration(name, language);
+        cfg.setSourceFileName(sourceFileField.getText());
         cfg.setCompileCommand(compileCmdField.getText());
         cfg.setRunCommand(runCmdField.getText());
         cfg.setExpectedOutputPath(expectedOutputField.getText());
@@ -262,6 +264,7 @@ public class MainController {
         }
         c.setName(p.getName() + " Config");
         c.setLanguage(languageCombo.getValue());
+        c.setSourceFileName(sourceFileField.getText());
         c.setCompileCommand(compileCmdField.getText());
         c.setRunCommand(runCmdField.getText());
         c.setExpectedOutputPath(expectedOutputField.getText());
@@ -274,6 +277,47 @@ public class MainController {
         } catch (Exception e) {
             info("Error", "Failed to save project: " + e.getMessage());
         }
+    }
+
+    @FXML
+    private void onDeleteProject() {
+        List<String> names = projectService.getAllProjectNames();
+        if (names.isEmpty()) {
+            info("Delete Project", "No saved projects found.");
+            return;
+        }
+
+        String currentName = projectService.getCurrentProject() != null
+                ? projectService.getCurrentProject().getName()
+                : null;
+        String defaultName = currentName != null && names.contains(currentName)
+                ? currentName
+                : names.get(0);
+
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(defaultName, names);
+        dialog.setTitle("Delete Project");
+        dialog.setHeaderText("Select a project to delete");
+        dialog.setContentText("Project:");
+
+        Optional<String> result = dialog.showAndWait();
+        if (result.isEmpty()) {
+            return;
+        }
+
+        String selected = result.get();
+        if (!confirm("Delete Project", "Delete project '" + selected + "' and its saved results?")) {
+            return;
+        }
+
+        boolean deletingCurrent = currentName != null && currentName.equals(selected);
+        projectService.deleteProject(selected);
+
+        if (deletingCurrent) {
+            clearCurrentProjectView();
+        }
+
+        statusLeft.setText("Project deleted: " + selected);
+        statusRight.setText("");
     }
 
     @FXML private void onImportConfig() { info("Import Configuration", "Out of scope for Milestone 2."); }
@@ -301,6 +345,7 @@ public class MainController {
             try {
                 Configuration cfg = readConfigurationFromForm(trimmed);
                 configurationService.saveConfiguration(cfg);
+                refreshLanguageChoices();
                 statusLeft.setText("Configuration saved: " + trimmed);
             } catch (Exception e) {
                 info("Error", "Could not save configuration: " + e.getMessage());
@@ -309,25 +354,41 @@ public class MainController {
     }
 
     /**
-     * Create-new-configuration dialog. Asks for a name and language; the
-     * compile/run/source defaults for that language are filled in
-     * automatically. The result is persisted and returned to the caller.
+     * Create-new-configuration dialog. Lets the user define the configuration
+     * directly instead of choosing from built-in language presets.
      */
     private Configuration showCreateConfigurationDialog() {
-        Dialog<Configuration> dialog = new Dialog<>();
-        dialog.setTitle("New Configuration");
-        dialog.setHeaderText("Create a new configuration");
+        return showConfigurationEditor(null);
+    }
 
-        ButtonType createBtn = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(createBtn, ButtonType.CANCEL);
+    private Configuration showConfigurationEditor(Configuration existing) {
+        Dialog<Configuration> dialog = new Dialog<>();
+        boolean editing = existing != null;
+        dialog.setTitle(editing ? "Edit Configuration" : "New Configuration");
+        dialog.setHeaderText(editing ? "Edit configuration" : "Create a new configuration");
+
+        ButtonType saveBtn = new ButtonType(editing ? "Save" : "Create", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveBtn, ButtonType.CANCEL);
 
         TextField nameField = new TextField();
-        nameField.setPromptText("e.g. C Configuration");
-        ComboBox<String> langBox = new ComboBox<>(
-                FXCollections.observableArrayList("C", "C++", "Java", "Python"));
-        langBox.getSelectionModel().select("C");
-        nameField.setText(langBox.getValue() + " Configuration");
-        langBox.setOnAction(e -> nameField.setText(langBox.getValue() + " Configuration"));
+        nameField.setPromptText("e.g. Custom Java Config");
+        if (editing) nameField.setText(existing.getName());
+
+        TextField languageField = new TextField();
+        languageField.setPromptText("e.g. Java, C#, Go");
+        if (editing) languageField.setText(existing.getLanguage());
+
+        TextField sourceFileField = new TextField();
+        sourceFileField.setPromptText("e.g. Main.java, main.c, app.py");
+        if (editing) sourceFileField.setText(existing.getSourceFileName());
+
+        TextField compileCommandField = new TextField();
+        compileCommandField.setPromptText("e.g. javac Main.java");
+        if (editing) compileCommandField.setText(existing.getCompileCommand());
+
+        TextField runCommandField = new TextField();
+        runCommandField.setPromptText("e.g. java Main");
+        if (editing) runCommandField.setText(existing.getRunCommand());
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
@@ -336,21 +397,46 @@ public class MainController {
         grid.add(new Label("Name:"), 0, 0);
         grid.add(nameField, 1, 0);
         grid.add(new Label("Language:"), 0, 1);
-        grid.add(langBox, 1, 1);
+        grid.add(languageField, 1, 1);
+        grid.add(new Label("Source File:"), 0, 2);
+        grid.add(sourceFileField, 1, 2);
+        grid.add(new Label("Compile Command:"), 0, 3);
+        grid.add(compileCommandField, 1, 3);
+        grid.add(new Label("Run Command:"), 0, 4);
+        grid.add(runCommandField, 1, 4);
         dialog.getDialogPane().setContent(grid);
 
-        Button okButton = (Button) dialog.getDialogPane().lookupButton(createBtn);
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(saveBtn);
         okButton.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
             if (nameField.getText() == null || nameField.getText().trim().isEmpty()) {
-                info("New Configuration", "Configuration name cannot be empty.");
+                info(dialog.getTitle(), "Configuration name cannot be empty.");
+                evt.consume();
+            } else if (languageField.getText() == null || languageField.getText().trim().isEmpty()) {
+                info(dialog.getTitle(), "Language cannot be empty.");
+                evt.consume();
+            } else if (sourceFileField.getText() == null || sourceFileField.getText().trim().isEmpty()) {
+                info(dialog.getTitle(), "Source file cannot be empty.");
+                evt.consume();
+            } else if (runCommandField.getText() == null || runCommandField.getText().trim().isEmpty()) {
+                info(dialog.getTitle(), "Run command cannot be empty.");
                 evt.consume();
             }
         });
 
         dialog.setResultConverter(button -> {
-            if (button == createBtn) {
-                Configuration cfg = configurationService.createConfiguration(
-                        nameField.getText().trim(), langBox.getValue());
+            if (button == saveBtn) {
+                Configuration cfg = new Configuration();
+                cfg.setName(nameField.getText().trim());
+                cfg.setLanguage(languageField.getText().trim());
+                cfg.setSourceFileName(sourceFileField.getText().trim());
+                cfg.setCompileCommand(compileCommandField.getText() != null
+                        ? compileCommandField.getText().trim()
+                        : "");
+                cfg.setRunCommand(runCommandField.getText().trim());
+                cfg.setCompiled(cfg.getCompileCommand() != null && !cfg.getCompileCommand().isBlank());
+                if (editing && !existing.getName().equals(cfg.getName())) {
+                    configurationService.removeConfiguration(existing.getName());
+                }
                 configurationService.saveConfiguration(cfg);
                 return cfg;
             }
@@ -386,6 +472,7 @@ public class MainController {
         newBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
             Configuration created = showCreateConfigurationDialog();
             if (created != null) {
+                refreshLanguageChoices();
                 list.setItems(FXCollections.observableArrayList(configurationService.listConfigurationNames()));
                 list.getSelectionModel().select(created.getName());
                 statusLeft.setText("Configuration created: " + created.getName());
@@ -402,6 +489,7 @@ public class MainController {
             } else if (confirm("Delete Configuration", "Delete '" + selected + "'?")) {
                 configurationService.removeConfiguration(selected);
                 list.getItems().remove(selected);
+                refreshLanguageChoices();
                 statusLeft.setText("Configuration deleted: " + selected);
             }
             evt.consume();
@@ -422,9 +510,17 @@ public class MainController {
                 evt.consume();
                 return;
             }
-            applyConfigurationToForm(cfg);
+            Configuration edited = showConfigurationEditor(cfg);
+            if (edited == null) {
+                evt.consume();
+                return;
+            }
+            refreshLanguageChoices();
+            list.setItems(FXCollections.observableArrayList(configurationService.listConfigurationNames()));
+            list.getSelectionModel().select(edited.getName());
+            applyConfigurationToForm(edited);
             com.iae.model.Project current = projectService.getCurrentProject();
-            if (current != null) current.setConfiguration(cfg);
+            if (current != null) current.setConfiguration(edited);
             statusLeft.setText("Configuration loaded: " + selected
                     + " — edit fields and use 'Save Config' to update.");
         });
@@ -501,12 +597,17 @@ public class MainController {
                 return;
             }
 
-            Configuration configuration = configurationService.createConfiguration(
-                    lang + " Configuration", lang);
-            configuration.setCompileCommand(compileCmdField.getText());
-            configuration.setRunCommand(runCmdField.getText());
-            configuration.setCompiled(compileCmdField.getText() != null
-                    && !compileCmdField.getText().isBlank());
+            if (sourceFileField.getText() == null || sourceFileField.getText().isBlank()) {
+                info("Error", "Please enter the source file name.");
+                return;
+            }
+
+            if (runCmdField.getText() == null || runCmdField.getText().isBlank()) {
+                info("Error", "Please enter the run command.");
+                return;
+            }
+
+            Configuration configuration = readConfigurationFromForm(lang + " Configuration");
 
             String expectedPath = expectedOutputField.getText();
             if (expectedPath == null || expectedPath.isBlank()) {
@@ -537,10 +638,49 @@ public class MainController {
     private void applyLanguageDefaults() {
         String language = languageCombo.getValue();
         if (language == null) return;
-        Configuration template = configurationService.createConfiguration(
-                language + " Configuration", language);
+        Configuration template = configurationService.getFirstConfigurationByLanguage(language);
+        if (template == null) {
+            template = configurationService.createConfiguration(language + " Configuration", language);
+        }
+        sourceFileField.setText(template.getSourceFileName() != null ? template.getSourceFileName() : "");
         compileCmdField.setText(template.getCompileCommand());
         runCmdField.setText(template.getRunCommand());
+    }
+
+    private void refreshLanguageChoices() {
+        String selectedLanguage = languageCombo.getValue();
+        List<String> languages = configurationService.listConfiguredLanguages();
+
+        suppressLanguageListener = true;
+        try {
+            languageCombo.setItems(FXCollections.observableArrayList(languages));
+            if (selectedLanguage != null && languages.contains(selectedLanguage)) {
+                languageCombo.getSelectionModel().select(selectedLanguage);
+            } else if (!languages.isEmpty()) {
+                languageCombo.getSelectionModel().selectFirst();
+            } else {
+                languageCombo.getSelectionModel().clearSelection();
+                languageCombo.setValue(null);
+                sourceFileField.setText("");
+                compileCmdField.setText("");
+                runCmdField.setText("");
+            }
+        } finally {
+            suppressLanguageListener = false;
+        }
+
+        if (languageCombo.getValue() != null) {
+            applyLanguageDefaults();
+        }
+    }
+
+    private void clearCurrentProjectView() {
+        submissionFolderField.setText("");
+        expectedOutputField.setText("");
+        sourceFileField.setText("");
+        resultsData.clear();
+        submissionsData.clear();
+        refreshLanguageChoices();
     }
 
     private void info(String title, String body) {
