@@ -7,6 +7,7 @@
 <?import javafx.scene.control.Menu?>
 <?import javafx.scene.control.MenuBar?>
 <?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.control.SeparatorMenuItem?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.Tab?>
@@ -30,54 +31,107 @@
             styleClass="root-pane">
 
     <top>
-        <MenuBar>
-            <menus>
-                <Menu text="File">
-                    <items>
-                        <MenuItem text="New Project" onAction="#onNewProject"/>
-                        <MenuItem text="Open Project..." onAction="#onOpenProject"/>
-                        <MenuItem text="Save Project" onAction="#onSaveProject"/>
-                        <MenuItem text="Delete Project..." onAction="#onDeleteProject"/>
-                        <SeparatorMenuItem/>
-                        <MenuItem text="Import Configuration..." onAction="#onImportConfig"/>
-                        <MenuItem text="Export Configuration..." onAction="#onExportConfig"/>
-                        <SeparatorMenuItem/>
-                        <MenuItem text="Exit" onAction="#onExit"/>
-                    </items>
-                </Menu>
-                <Menu text="Configuration">
-                    <items>
-                        <MenuItem text="Manage Configurations..." onAction="#onManageConfigs"/>
-                    </items>
-                </Menu>
-                <Menu text="Help">
-                    <items>
-                        <MenuItem text="Manual" onAction="#onShowManual"/>
-                        <MenuItem text="About" onAction="#onAbout"/>
-                    </items>
-                </Menu>
-            </menus>
-        </MenuBar>
+        <VBox spacing="0">
+            <children>
+                <MenuBar>
+                    <menus>
+                        <Menu text="File">
+                            <items>
+                                <MenuItem text="New Project" onAction="#onNewProject"/>
+                                <MenuItem text="Open Project..." onAction="#onOpenProject"/>
+                                <MenuItem text="Save Project" onAction="#onSaveProject"/>
+                                <MenuItem text="Delete Project..." onAction="#onDeleteProject"/>
+                                <SeparatorMenuItem/>
+                                <MenuItem text="Import Configuration (Coming Soon)" disable="true"/>
+                                <MenuItem text="Export Configuration (Coming Soon)" disable="true"/>
+                                <SeparatorMenuItem/>
+                                <MenuItem text="Exit" onAction="#onExit"/>
+                            </items>
+                        </Menu>
+                        <Menu text="Configuration">
+                            <items>
+                                <MenuItem text="Manage Configurations..." onAction="#onManageConfigs"/>
+                            </items>
+                        </Menu>
+                        <Menu text="Help">
+                            <items>
+                                <MenuItem text="Manual" onAction="#onShowManual"/>
+                                <MenuItem text="About" onAction="#onAbout"/>
+                            </items>
+                        </Menu>
+                    </menus>
+                </MenuBar>
+
+                <HBox styleClass="context-bar" spacing="18" alignment="CENTER_LEFT">
+                    <padding><Insets top="10" right="18" bottom="10" left="18"/></padding>
+                    <children>
+                        <VBox spacing="2">
+                            <children>
+                                <Label text="Project" styleClass="context-eyebrow"/>
+                                <Label fx:id="projectNameLabel" text="No active project" styleClass="context-value"
+                                       maxWidth="230" textOverrun="ELLIPSIS"/>
+                            </children>
+                        </VBox>
+                        <Separator orientation="VERTICAL"/>
+                        <VBox spacing="2">
+                            <children>
+                                <Label text="Configuration" styleClass="context-eyebrow"/>
+                                <Label fx:id="configNameLabel" text="No configuration selected" styleClass="context-value"
+                                       maxWidth="240" textOverrun="ELLIPSIS"/>
+                            </children>
+                        </VBox>
+                        <Separator orientation="VERTICAL"/>
+                        <VBox spacing="2">
+                            <children>
+                                <Label text="Submissions" styleClass="context-eyebrow"/>
+                                <Label fx:id="submissionCountLabel" text="0 ZIP files" styleClass="context-value"
+                                       maxWidth="130" textOverrun="ELLIPSIS"/>
+                            </children>
+                        </VBox>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <VBox spacing="2" alignment="CENTER_RIGHT">
+                            <children>
+                                <Label text="Last Run" styleClass="context-eyebrow"/>
+                                <Label fx:id="lastRunLabel" text="Not run yet" styleClass="context-value-muted"
+                                       maxWidth="170" textOverrun="ELLIPSIS"/>
+                            </children>
+                        </VBox>
+                    </children>
+                </HBox>
+            </children>
+        </VBox>
     </top>
 
     <left>
         <VBox styleClass="sidebar" spacing="10">
             <padding><Insets top="16" right="14" bottom="16" left="14"/></padding>
             <children>
-                <Button text="New Project" maxWidth="Infinity" styleClass="side-btn" onAction="#onNewProject"/>
-                <Button text="Open Project" maxWidth="Infinity" styleClass="side-btn" onAction="#onOpenProject"/>
-                <Button text="Save Project" maxWidth="Infinity" styleClass="side-btn" onAction="#onSaveProject"/>
-                <Button text="Delete Project" maxWidth="Infinity" styleClass="side-btn-secondary" onAction="#onDeleteProject"/>
+                <Button fx:id="newProjectBtn" text="_New Project" maxWidth="Infinity" styleClass="side-btn"
+                        accessibleText="Create a new project" onAction="#onNewProject"/>
+                <Button fx:id="openProjectBtn" text="_Open Project" maxWidth="Infinity" styleClass="side-btn"
+                        accessibleText="Open a saved project" onAction="#onOpenProject"/>
+                <Button fx:id="saveProjectBtn" text="_Save Project" maxWidth="Infinity" styleClass="side-btn"
+                        accessibleText="Save the active project" onAction="#onSaveProject"/>
+                <Button fx:id="deleteProjectBtn" text="_Delete Project" maxWidth="Infinity" styleClass="danger-btn"
+                        accessibleText="Delete a saved project" onAction="#onDeleteProject"/>
 
                 <Separator/>
 
-                <Label text="Select Submission Folder:" styleClass="side-label"/>
+                <Label text="Submission Folder:" styleClass="side-label" labelFor="$submissionFolderField"/>
                 <TextField fx:id="submissionFolderField" promptText="/path/to/student_submissions" styleClass="side-input"/>
-                <Button text="Browse..." maxWidth="Infinity" styleClass="side-btn-secondary" onAction="#onBrowseSubmissions"/>
+                <Label fx:id="submissionFolderValidation" text="" styleClass="validation-text" wrapText="true"/>
+                <Button fx:id="browseSubmissionsBtn" text="_Browse..." maxWidth="Infinity" styleClass="side-btn-secondary"
+                        accessibleText="Choose submissions folder" onAction="#onBrowseSubmissions"/>
 
                 <Region VBox.vgrow="ALWAYS"/>
 
-                <Button fx:id="runTestsBtn" text="Run Tests" maxWidth="Infinity" styleClass="run-btn" onAction="#onRunTests"/>
+                <Button fx:id="runTestsBtn" text="_Run Tests" maxWidth="Infinity" styleClass="run-btn"
+                        accessibleText="Run tests for discovered submissions" onAction="#onRunTests"/>
+                <ProgressBar fx:id="runProgress" progress="0" maxWidth="Infinity" visible="false" managed="false"/>
+                <Label fx:id="currentRunLabel" text="" styleClass="side-help" wrapText="true"/>
+                <Button fx:id="cancelRunBtn" text="_Cancel Run" maxWidth="Infinity" styleClass="side-btn-secondary"
+                        accessibleText="Cancel running evaluation" onAction="#onCancelRun"
+                        visible="false" managed="false"/>
             </children>
         </VBox>
     </left>
@@ -85,7 +139,7 @@
     <center>
         <VBox spacing="0">
             <children>
-                <TabPane fx:id="mainTabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="NEVER" styleClass="main-tabs">
+                <TabPane fx:id="mainTabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS" styleClass="main-tabs">
                     <tabs>
                         <Tab text="Configuration">
                             <content>
@@ -104,33 +158,52 @@
                                                 <RowConstraints/>
                                                 <RowConstraints/>
                                                 <RowConstraints/>
+                                                <RowConstraints/>
                                             </rowConstraints>
 
-                                            <Label text="Language:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                                            <ComboBox fx:id="languageCombo" GridPane.rowIndex="0" GridPane.columnIndex="1" maxWidth="220"/>
+                                            <Label text="Configuration:" GridPane.rowIndex="0" GridPane.columnIndex="0"
+                                                   labelFor="$configCombo"/>
+                                            <ComboBox fx:id="configCombo" GridPane.rowIndex="0" GridPane.columnIndex="1"
+                                                      maxWidth="320"/>
+                                            <Button text="Manage..." GridPane.rowIndex="0" GridPane.columnIndex="2"
+                                                    maxWidth="Infinity" onAction="#onManageConfigs"/>
 
-                                            <Label text="Source File:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                                            <Label text="Language:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                                            <Label fx:id="configLanguageLabel" text="No language specified"
+                                                   styleClass="readonly-value" GridPane.rowIndex="1" GridPane.columnIndex="1"
+                                                   GridPane.columnSpan="2"/>
+
+                                            <Label text="Source File:" GridPane.rowIndex="2" GridPane.columnIndex="0"
+                                                   labelFor="$sourceFileField"/>
                                             <TextField fx:id="sourceFileField" promptText="main.c"
-                                                       GridPane.rowIndex="1" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
-
-                                            <Label text="Compile Command:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-                                            <TextField fx:id="compileCmdField" promptText="/usr/bin/gcc main.c -o main"
                                                        GridPane.rowIndex="2" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
 
-                                            <Label text="Run Command:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
-                                            <TextField fx:id="runCmdField" promptText="./main arg1 arg2 arg3"
+                                            <Label text="Compile Command:" GridPane.rowIndex="3" GridPane.columnIndex="0"
+                                                   labelFor="$compileCmdField"/>
+                                            <TextField fx:id="compileCmdField" promptText="/usr/bin/gcc main.c -o main"
                                                        GridPane.rowIndex="3" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
 
-                                            <Label text="Expected Output File:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                                            <Label text="Run Command:" GridPane.rowIndex="4" GridPane.columnIndex="0"
+                                                   labelFor="$runCmdField"/>
+                                            <TextField fx:id="runCmdField" promptText="./main arg1 arg2 arg3"
+                                                       GridPane.rowIndex="4" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+                                            <Label text="Expected Output File:" GridPane.rowIndex="5" GridPane.columnIndex="0"
+                                                   labelFor="$expectedOutputField"/>
                                             <TextField fx:id="expectedOutputField" promptText="expected_output.txt"
-                                                       GridPane.rowIndex="4" GridPane.columnIndex="1"/>
-                                            <Button text="Browse..." GridPane.rowIndex="4" GridPane.columnIndex="2"
+                                                       GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+                                            <Button fx:id="browseExpectedOutputBtn" text="Browse..." GridPane.rowIndex="5" GridPane.columnIndex="2"
+                                                    accessibleText="Choose expected output file"
                                                     maxWidth="Infinity" onAction="#onBrowseExpectedOutput"/>
                                         </GridPane>
 
+                                        <Label fx:id="configValidationLabel" text="" styleClass="validation-text" wrapText="true"/>
+
                                         <HBox alignment="CENTER_RIGHT">
                                             <children>
-                                                <Button text="Save Config" styleClass="save-btn" onAction="#onSaveConfig"/>
+                                                <Button fx:id="saveConfigBtn" text="Save Config As..." styleClass="save-btn"
+                                                        accessibleText="Save current configuration under a name"
+                                                        onAction="#onSaveConfig"/>
                                             </children>
                                         </HBox>
                                     </children>
@@ -143,7 +216,14 @@
                                 <VBox spacing="10" styleClass="config-pane">
                                     <padding><Insets top="14" right="18" bottom="14" left="18"/></padding>
                                     <children>
-                                        <Label text="Submission ZIPs discovered in folder:" styleClass="section-label"/>
+                                        <HBox alignment="CENTER_LEFT" spacing="10">
+                                            <children>
+                                                <Label text="Submission ZIPs discovered in folder:" styleClass="section-label"/>
+                                                <Region HBox.hgrow="ALWAYS"/>
+                                                <Label fx:id="submissionTableHint" text="Choose a folder to preview ZIP files."
+                                                       styleClass="muted-text" maxWidth="260" textOverrun="ELLIPSIS"/>
+                                            </children>
+                                        </HBox>
                                         <TableView fx:id="submissionsTable" VBox.vgrow="ALWAYS">
                                             <columns>
                                                 <TableColumn fx:id="colSubZip" text="ZIP File" prefWidth="280"/>
@@ -161,12 +241,22 @@
                 <VBox styleClass="results-section" spacing="6" VBox.vgrow="ALWAYS">
                     <padding><Insets top="10" right="18" bottom="10" left="18"/></padding>
                     <children>
-                        <Label text="Test Results" styleClass="section-label"/>
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <children>
+                                <Label text="Test Results" styleClass="section-label"/>
+                                <Label fx:id="resultsSummaryLabel" text="No results yet" styleClass="muted-text"
+                                       maxWidth="360" textOverrun="ELLIPSIS"/>
+                                <Region HBox.hgrow="ALWAYS"/>
+                                <Label text="Filter:" styleClass="muted-text"/>
+                                <ComboBox fx:id="statusFilterCombo" prefWidth="180"/>
+                            </children>
+                        </HBox>
                         <TableView fx:id="resultsTable" VBox.vgrow="ALWAYS">
                             <columns>
                                 <TableColumn fx:id="colStudentId" text="Student ID" prefWidth="130"/>
-                                <TableColumn fx:id="colStatus" text="Status" prefWidth="110"/>
-                                <TableColumn fx:id="colDetails" text="Details" prefWidth="440"/>
+                                <TableColumn fx:id="colStatus" text="Status" prefWidth="150"/>
+                                <TableColumn fx:id="colDetails" text="Details" prefWidth="430"/>
+                                <TableColumn fx:id="colActions" text="" prefWidth="90" sortable="false" resizable="false"/>
                             </columns>
                         </TableView>
                     </children>
@@ -179,9 +269,11 @@
         <HBox styleClass="status-bar" spacing="10" alignment="CENTER_LEFT">
             <padding><Insets top="6" right="12" bottom="6" left="12"/></padding>
             <children>
-                <Label fx:id="statusLeft" text="Ready." styleClass="status-text"/>
+                <Label fx:id="statusLeft" text="Ready." styleClass="status-text"
+                       maxWidth="620" textOverrun="ELLIPSIS"/>
                 <Region HBox.hgrow="ALWAYS"/>
-                <Label fx:id="statusRight" text="" styleClass="status-text-muted"/>
+                <Label fx:id="statusRight" text="" styleClass="status-text-muted"
+                       maxWidth="260" textOverrun="ELLIPSIS"/>
             </children>
         </HBox>
     </bottom>

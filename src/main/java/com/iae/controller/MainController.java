@@ -8,13 +8,35 @@ import com.iae.service.ConfigurationService;
 import com.iae.service.FileManager;
 import com.iae.service.ProjectService;
 
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.concurrent.Task;
+import javafx.css.PseudoClass;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ChoiceDialog;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
@@ -22,24 +44,64 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 public class MainController {
 
+    private static final String FILTER_ALL = "All Results";
+    private static final String FILTER_PASSED = "Passed";
+    private static final String FILTER_FAILED = "Failed";
+    private static final PseudoClass ERROR = PseudoClass.getPseudoClass("error");
+    private static final List<String> STATUS_CELL_CLASSES = List.of(
+            "status-pill",
+            "status-passed",
+            "status-failed",
+            "status-compile",
+            "status-runtime",
+            "status-timeout",
+            "status-mismatch",
+            "status-missing",
+            "status-pending"
+    );
+
     @FXML private TextField submissionFolderField;
-    @FXML private ComboBox<String> languageCombo;
+    @FXML private ComboBox<String> configCombo;
     @FXML private TextField sourceFileField;
     @FXML private TextField compileCmdField;
     @FXML private TextField runCmdField;
     @FXML private TextField expectedOutputField;
     @FXML private Button runTestsBtn;
+    @FXML private Button cancelRunBtn;
+    @FXML private Button newProjectBtn;
+    @FXML private Button openProjectBtn;
+    @FXML private Button saveProjectBtn;
+    @FXML private Button deleteProjectBtn;
+    @FXML private Button browseSubmissionsBtn;
+    @FXML private Button browseExpectedOutputBtn;
+    @FXML private Button saveConfigBtn;
+    @FXML private ProgressBar runProgress;
+
+    @FXML private Label projectNameLabel;
+    @FXML private Label configNameLabel;
+    @FXML private Label submissionCountLabel;
+    @FXML private Label lastRunLabel;
+    @FXML private Label submissionFolderValidation;
+    @FXML private Label configValidationLabel;
+    @FXML private Label configLanguageLabel;
+    @FXML private Label submissionTableHint;
+    @FXML private Label resultsSummaryLabel;
+    @FXML private Label currentRunLabel;
 
     @FXML private TableView<StudentResult> resultsTable;
     @FXML private TableColumn<StudentResult, String> colStudentId;
     @FXML private TableColumn<StudentResult, TestStatus> colStatus;
     @FXML private TableColumn<StudentResult, String> colDetails;
+    @FXML private TableColumn<StudentResult, Void> colActions;
+    @FXML private ComboBox<String> statusFilterCombo;
 
     @FXML private TableView<SubmissionInfo> submissionsTable;
     @FXML private TableColumn<SubmissionInfo, String> colSubZip;
@@ -50,57 +112,115 @@ public class MainController {
     @FXML private Label statusRight;
 
     private final ObservableList<StudentResult> resultsData = FXCollections.observableArrayList();
+    private final FilteredList<StudentResult> filteredResultsData = new FilteredList<>(resultsData, result -> true);
     private final ObservableList<SubmissionInfo> submissionsData = FXCollections.observableArrayList();
     private final ProjectService projectService = new ProjectService();
     private final ConfigurationService configurationService = new ConfigurationService();
     private final FileManager fileManager = new FileManager();
+    private Task<List<StudentResult>> evaluationTask;
 
-    /**
-     * Guards against the language ComboBox listener overwriting fields that
-     * we set programmatically (e.g. when loading a saved configuration into
-     * the form).
-     */
-    private boolean suppressLanguageListener = false;
+    private boolean suppressConfigurationListener = false;
+    private boolean suppressFormListeners = false;
+    private boolean formInitialized = false;
+    private boolean showValidationMessages = false;
+    private boolean projectDirty = false;
+    private boolean configDirty = false;
+    private String activeConfigurationName = "";
+    private String activeConfigurationLanguage = "";
 
     @FXML
     public void initialize() {
-        // Seed default Java/C/C++/Python configurations on first run so the
-        // Manage Configurations dialog is never empty. (Requirement #4)
         configurationService.seedDefaultsIfEmpty();
 
-        refreshLanguageChoices();
-        languageCombo.setOnAction(event -> {
-            if (!suppressLanguageListener) applyLanguageDefaults();
+        configureResultTable();
+        configureSubmissionsTable();
+        configureStatusFilter();
+        configureFieldListeners();
+        configureTooltips();
+        configureAccessibility();
+        configureResponsiveTables();
+
+        suppressFormListeners = true;
+        refreshConfigurationChoices(null);
+        configCombo.setOnAction(event -> {
+            if (!suppressConfigurationListener) {
+                loadSelectedConfiguration();
+            }
+            updateContextLabels();
+            validateForm(false);
         });
 
-        // Start from the first saved configuration language.
-        applyLanguageDefaults();
-        expectedOutputField.setText("");
         submissionFolderField.setText("");
+        refreshSubmissionsTable();
+        suppressFormListeners = false;
+        formInitialized = true;
 
-        // ----- Results table (Requirement #9) -----
+        statusLeft.setText("Ready. Create or open a project, then select submissions and expected output.");
+        statusRight.setText("");
+        updateResultsSummary();
+        updateContextLabels();
+        validateForm(false);
+    }
+
+    private void configureResultTable() {
         colStudentId.setCellValueFactory(new PropertyValueFactory<>("studentId"));
         colDetails.setCellValueFactory(new PropertyValueFactory<>("details"));
         colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
 
-        colStatus.setCellFactory(column -> new TableCell<StudentResult, TestStatus>() {
+        colStatus.setCellFactory(column -> new TableCell<>() {
             @Override
             protected void updateItem(TestStatus item, boolean empty) {
                 super.updateItem(item, empty);
-                getStyleClass().removeAll("status-passed", "status-failed", "status-pending");
+                getStyleClass().removeAll(STATUS_CELL_CLASSES);
                 if (empty || item == null) {
                     setText(null);
+                    setTooltip(null);
                 } else {
+                    getStyleClass().addAll("status-pill", statusStyleClass(item));
                     setText(item.display());
-                    if (item.isPassed()) getStyleClass().add("status-passed");
-                    else if (item == TestStatus.PENDING) getStyleClass().add("status-pending");
-                    else getStyleClass().add("status-failed");
+                    setTooltip(new Tooltip(item.name()));
                 }
             }
         });
 
-        resultsTable.setItems(resultsData);
+        colDetails.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setText(null);
+                    setTooltip(null);
+                    return;
+                }
+                StudentResult result = getTableRow() != null ? getTableRow().getItem() : null;
+                String text = result != null ? detailsText(result) : cleanText(item);
+                setText(text);
+                setTooltip(text.isBlank() ? null : new Tooltip(text));
+            }
+        });
 
+        colActions.setCellFactory(column -> new TableCell<>() {
+            private final Button button = new Button("Details");
+
+            {
+                button.getStyleClass().add("details-btn");
+                button.setOnAction(event -> {
+                    StudentResult result = getTableRow() != null ? getTableRow().getItem() : null;
+                    if (result != null) {
+                        showResultDetailsDialog(result);
+                    }
+                });
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : button);
+            }
+        });
+
+        resultsTable.setItems(filteredResultsData);
+        resultsTable.setPlaceholder(new Label("Run tests to see per-student results."));
         resultsTable.setRowFactory(tv -> {
             TableRow<StudentResult> row = new TableRow<>();
             row.setOnMouseClicked(event -> {
@@ -110,33 +230,136 @@ public class MainController {
             });
             return row;
         });
+    }
 
-        // ----- Submissions table (supports Requirement #9 preview) -----
+    private void configureSubmissionsTable() {
         colSubZip.setCellValueFactory(new PropertyValueFactory<>("fileName"));
         colSubStudent.setCellValueFactory(new PropertyValueFactory<>("studentId"));
         colSubSize.setCellValueFactory(new PropertyValueFactory<>("size"));
         submissionsTable.setItems(submissionsData);
-
-        // Refresh the submissions table whenever the folder path changes,
-        // regardless of whether it was typed or set via the Browse button.
-        submissionFolderField.textProperty().addListener(
-                (obs, oldVal, newVal) -> refreshSubmissionsTable());
-
-        statusLeft.setText("Ready.");
-        statusRight.setText("");
+        submissionsTable.setPlaceholder(new Label("Select a submissions folder to preview ZIP files."));
     }
 
-    // ---------------------------------------------------------------------
-    // Requirement #3: create a project that uses an existing or new
-    // configuration. After the user supplies a project name we let them pick
-    // a saved configuration (if any) or start from a language template.
-    // ---------------------------------------------------------------------
+    private void configureStatusFilter() {
+        statusFilterCombo.setItems(FXCollections.observableArrayList(
+                FILTER_ALL,
+                FILTER_PASSED,
+                FILTER_FAILED,
+                TestStatus.COMPILATION_ERROR.display(),
+                TestStatus.RUNTIME_ERROR.display(),
+                TestStatus.TIMEOUT.display(),
+                TestStatus.OUTPUT_MISMATCH.display(),
+                TestStatus.MISSING_SOURCE.display(),
+                TestStatus.EXTRACTION_ERROR.display()
+        ));
+        statusFilterCombo.getSelectionModel().select(FILTER_ALL);
+        statusFilterCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+            applyResultsFilter();
+            updateResultsSummary();
+            updateResultsPlaceholder();
+        });
+    }
+
+    private void configureFieldListeners() {
+        submissionFolderField.textProperty().addListener((obs, oldVal, newVal) -> {
+            markFormEdited();
+            refreshSubmissionsTable();
+        });
+        sourceFileField.textProperty().addListener((obs, oldVal, newVal) -> {
+            markConfigurationEdited();
+            validateForm();
+        });
+        compileCmdField.textProperty().addListener((obs, oldVal, newVal) -> {
+            markConfigurationEdited();
+            validateForm();
+        });
+        runCmdField.textProperty().addListener((obs, oldVal, newVal) -> {
+            markConfigurationEdited();
+            validateForm();
+        });
+        expectedOutputField.textProperty().addListener((obs, oldVal, newVal) -> {
+            markConfigurationEdited();
+            validateForm();
+        });
+        resultsData.addListener((javafx.collections.ListChangeListener<StudentResult>) change -> {
+            updateResultsSummary();
+            updateContextLabels();
+            updateResultsPlaceholder();
+        });
+        filteredResultsData.addListener((javafx.collections.ListChangeListener<StudentResult>) change -> {
+            updateResultsSummary();
+            updateResultsPlaceholder();
+        });
+    }
+
+    private void configureTooltips() {
+        runTestsBtn.setTooltip(new Tooltip("Complete the project inputs before running tests."));
+        cancelRunBtn.setTooltip(new Tooltip("Stop after the current submission finishes."));
+        configCombo.setTooltip(new Tooltip("Saved configuration used for compile and run commands."));
+        submissionFolderField.setTooltip(new Tooltip("Folder containing student ZIP files."));
+        expectedOutputField.setTooltip(new Tooltip("Text file used as the expected program output."));
+    }
+
+    private void configureAccessibility() {
+        newProjectBtn.setMnemonicParsing(true);
+        openProjectBtn.setMnemonicParsing(true);
+        saveProjectBtn.setMnemonicParsing(true);
+        deleteProjectBtn.setMnemonicParsing(true);
+        browseSubmissionsBtn.setMnemonicParsing(true);
+        browseExpectedOutputBtn.setMnemonicParsing(true);
+        saveConfigBtn.setMnemonicParsing(true);
+        runTestsBtn.setMnemonicParsing(true);
+        cancelRunBtn.setMnemonicParsing(true);
+
+        configCombo.setAccessibleText("Active configuration");
+        configLanguageLabel.setAccessibleText("Selected configuration language");
+        submissionFolderField.setAccessibleText("Submission folder path");
+        sourceFileField.setAccessibleText("Source file name");
+        compileCmdField.setAccessibleText("Compile command");
+        runCmdField.setAccessibleText("Run command");
+        expectedOutputField.setAccessibleText("Expected output file path");
+        statusFilterCombo.setAccessibleText("Results status filter");
+        resultsTable.setAccessibleText("Student test results");
+        submissionsTable.setAccessibleText("Discovered student submission ZIP files");
+    }
+
+    private void configureResponsiveTables() {
+        resultsTable.widthProperty().addListener((obs, oldWidth, newWidth) -> resizeResultColumns());
+        submissionsTable.widthProperty().addListener((obs, oldWidth, newWidth) -> resizeSubmissionColumns());
+        Platform.runLater(() -> {
+            resizeResultColumns();
+            resizeSubmissionColumns();
+        });
+    }
+
+    private void resizeResultColumns() {
+        double width = Math.max(520, resultsTable.getWidth() - 18);
+        colStudentId.setPrefWidth(Math.max(110, width * 0.18));
+        colStatus.setPrefWidth(Math.max(130, width * 0.20));
+        colActions.setPrefWidth(88);
+        colDetails.setPrefWidth(Math.max(220, width - colStudentId.getPrefWidth()
+                - colStatus.getPrefWidth() - colActions.getPrefWidth()));
+    }
+
+    private void resizeSubmissionColumns() {
+        double width = Math.max(420, submissionsTable.getWidth() - 18);
+        colSubSize.setPrefWidth(Math.max(90, width * 0.18));
+        colSubStudent.setPrefWidth(Math.max(120, width * 0.28));
+        colSubZip.setPrefWidth(Math.max(190, width - colSubStudent.getPrefWidth() - colSubSize.getPrefWidth()));
+    }
+
     @FXML
     private void onNewProject() {
-        TextInputDialog dialog = new TextInputDialog("New Project");
+        if (isRunning()) {
+            return;
+        }
+
+        javafx.scene.control.TextInputDialog dialog =
+                new javafx.scene.control.TextInputDialog("New Project");
         dialog.setTitle("New Project");
         dialog.setHeaderText("Create a New Project");
         dialog.setContentText("Please enter project name:");
+        styleDialog(dialog);
 
         Optional<String> nameOpt = dialog.showAndWait();
         if (nameOpt.isEmpty() || nameOpt.get().trim().isEmpty()) {
@@ -156,13 +379,14 @@ public class MainController {
         projectService.setCurrentProject(p);
         submissionFolderField.setText("");
         resultsData.clear();
+        projectDirty = true;
+        showValidationMessages = false;
         statusLeft.setText("New project created: " + name);
+        lastRunLabel.setText("Not run yet");
+        updateContextLabels();
+        validateForm(false);
     }
 
-    /**
-     * Lets the user pick an existing saved configuration or start a new one
-     * from a language template.
-     */
     private Configuration promptForProjectConfiguration() {
         List<String> savedNames = configurationService.listConfigurationNames();
 
@@ -175,6 +399,7 @@ public class MainController {
         picker.setTitle("Project Configuration");
         picker.setHeaderText("Use existing configuration or create a new one?");
         picker.setContentText("Configuration:");
+        styleDialog(picker);
 
         Optional<String> result = picker.showAndWait();
         if (result.isEmpty()) {
@@ -189,34 +414,48 @@ public class MainController {
     }
 
     private void applyConfigurationToForm(Configuration c) {
-        if (c == null) return;
-        suppressLanguageListener = true;
+        if (c == null) {
+            return;
+        }
+        suppressConfigurationListener = true;
+        suppressFormListeners = true;
         try {
-            if (c.getLanguage() != null) languageCombo.setValue(c.getLanguage());
+            activeConfigurationName = cleanText(c.getName());
+            activeConfigurationLanguage = cleanText(c.getLanguage());
+            if (!activeConfigurationName.isBlank() && !configCombo.getItems().contains(activeConfigurationName)) {
+                configCombo.getItems().add(activeConfigurationName);
+            }
+            configCombo.setValue(activeConfigurationName.isBlank() ? null : activeConfigurationName);
+            configLanguageLabel.setText(activeConfigurationLanguage.isBlank() ? "No language specified" : activeConfigurationLanguage);
             sourceFileField.setText(c.getSourceFileName() != null ? c.getSourceFileName() : "");
             compileCmdField.setText(c.getCompileCommand() != null ? c.getCompileCommand() : "");
             runCmdField.setText(c.getRunCommand() != null ? c.getRunCommand() : "");
-            if (c.getExpectedOutputPath() != null) {
-                expectedOutputField.setText(c.getExpectedOutputPath());
-            }
+            expectedOutputField.setText(c.getExpectedOutputPath() != null ? c.getExpectedOutputPath() : "");
         } finally {
-            suppressLanguageListener = false;
+            suppressFormListeners = false;
+            suppressConfigurationListener = false;
         }
+        configDirty = false;
+        updateContextLabels();
+        validateForm(false);
     }
 
     private Configuration readConfigurationFromForm(String name) {
-        String language = languageCombo.getValue();
-        Configuration cfg = new Configuration(name, language);
-        cfg.setSourceFileName(sourceFileField.getText());
-        cfg.setCompileCommand(compileCmdField.getText());
-        cfg.setRunCommand(runCmdField.getText());
-        cfg.setExpectedOutputPath(expectedOutputField.getText());
+        Configuration cfg = new Configuration(name, activeConfigurationLanguage);
+        cfg.setSourceFileName(cleanText(sourceFileField.getText()));
+        cfg.setCompileCommand(cleanText(compileCmdField.getText()));
+        cfg.setRunCommand(cleanText(runCmdField.getText()));
+        cfg.setExpectedOutputPath(cleanText(expectedOutputField.getText()));
         cfg.setCompiled(cfg.getCompileCommand() != null && !cfg.getCompileCommand().isBlank());
         return cfg;
     }
 
     @FXML
     private void onOpenProject() {
+        if (isRunning()) {
+            return;
+        }
+
         List<String> names = projectService.getAllProjectNames();
         if (names.isEmpty()) {
             info("Open Project", "No saved projects found.");
@@ -227,6 +466,7 @@ public class MainController {
         dialog.setTitle("Open Project");
         dialog.setHeaderText("Select a project to open");
         dialog.setContentText("Project:");
+        styleDialog(dialog);
 
         dialog.showAndWait().ifPresent(name -> {
             com.iae.model.Project p = projectService.loadProject(name);
@@ -240,7 +480,12 @@ public class MainController {
                 if (p.getResults() != null) {
                     resultsData.addAll(p.getResults());
                 }
+                projectDirty = false;
+                showValidationMessages = false;
                 statusLeft.setText("Project loaded: " + name);
+                lastRunLabel.setText(resultsData.isEmpty() ? "Not run yet" : "Loaded saved results");
+                updateContextLabels();
+                validateForm(false);
             } else {
                 info("Error", "Could not load project.");
             }
@@ -249,31 +494,25 @@ public class MainController {
 
     @FXML
     private void onSaveProject() {
+        if (isRunning()) {
+            return;
+        }
+
         com.iae.model.Project p = projectService.getCurrentProject();
         if (p == null) {
             info("Save Project", "No active project to save. Please create or open a project first.");
             return;
         }
 
-        p.setSubmissionFolder(submissionFolderField.getText());
-
-        Configuration c = p.getConfiguration();
-        if (c == null) {
-            c = new Configuration();
-            p.setConfiguration(c);
-        }
-        c.setName(p.getName() + " Config");
-        c.setLanguage(languageCombo.getValue());
-        c.setSourceFileName(sourceFileField.getText());
-        c.setCompileCommand(compileCmdField.getText());
-        c.setRunCommand(runCmdField.getText());
-        c.setExpectedOutputPath(expectedOutputField.getText());
-
+        p.setSubmissionFolder(cleanText(submissionFolderField.getText()));
+        p.setConfiguration(readConfigurationFromForm(configurationNameForSave(p.getName() + " Config")));
         p.setResults(new ArrayList<>(resultsData));
 
         try {
             projectService.saveProject(p);
+            projectDirty = false;
             statusLeft.setText("Project saved successfully.");
+            updateContextLabels();
         } catch (Exception e) {
             info("Error", "Failed to save project: " + e.getMessage());
         }
@@ -281,6 +520,10 @@ public class MainController {
 
     @FXML
     private void onDeleteProject() {
+        if (isRunning()) {
+            return;
+        }
+
         List<String> names = projectService.getAllProjectNames();
         if (names.isEmpty()) {
             info("Delete Project", "No saved projects found.");
@@ -298,6 +541,7 @@ public class MainController {
         dialog.setTitle("Delete Project");
         dialog.setHeaderText("Select a project to delete");
         dialog.setContentText("Project:");
+        styleDialog(dialog);
 
         Optional<String> result = dialog.showAndWait();
         if (result.isEmpty()) {
@@ -318,23 +562,26 @@ public class MainController {
 
         statusLeft.setText("Project deleted: " + selected);
         statusRight.setText("");
+        updateContextLabels();
+        validateForm(false);
     }
 
-    @FXML private void onImportConfig() { info("Import Configuration", "Out of scope for Milestone 2."); }
-    @FXML private void onExportConfig() { info("Export Configuration", "Out of scope for Milestone 2."); }
-
-    // ---------------------------------------------------------------------
-    // Requirement #4: create, edit and remove a configuration.
-    // ---------------------------------------------------------------------
     @FXML
     private void onSaveConfig() {
-        String currentLang = languageCombo.getValue();
-        String defaultName = currentLang != null ? currentLang + " Configuration" : "New Configuration";
+        if (isRunning()) {
+            return;
+        }
 
-        TextInputDialog dialog = new TextInputDialog(defaultName);
+        String defaultName = !activeConfigurationName.isBlank()
+                ? activeConfigurationName
+                : "New Configuration";
+
+        javafx.scene.control.TextInputDialog dialog =
+                new javafx.scene.control.TextInputDialog(defaultName);
         dialog.setTitle("Save Configuration");
         dialog.setHeaderText("Save current configuration as...");
         dialog.setContentText("Name:");
+        styleDialog(dialog);
 
         dialog.showAndWait().ifPresent(name -> {
             String trimmed = name.trim();
@@ -345,18 +592,18 @@ public class MainController {
             try {
                 Configuration cfg = readConfigurationFromForm(trimmed);
                 configurationService.saveConfiguration(cfg);
-                refreshLanguageChoices();
+                refreshConfigurationChoices(trimmed);
+                activeConfigurationName = trimmed;
+                configDirty = false;
                 statusLeft.setText("Configuration saved: " + trimmed);
+                updateContextLabels();
+                validateForm(false);
             } catch (Exception e) {
                 info("Error", "Could not save configuration: " + e.getMessage());
             }
         });
     }
 
-    /**
-     * Create-new-configuration dialog. Lets the user define the configuration
-     * directly instead of choosing from built-in language presets.
-     */
     private Configuration showCreateConfigurationDialog() {
         return showConfigurationEditor(null);
     }
@@ -366,29 +613,71 @@ public class MainController {
         boolean editing = existing != null;
         dialog.setTitle(editing ? "Edit Configuration" : "New Configuration");
         dialog.setHeaderText(editing ? "Edit configuration" : "Create a new configuration");
+        styleDialog(dialog);
 
         ButtonType saveBtn = new ButtonType(editing ? "Save" : "Create", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(saveBtn, ButtonType.CANCEL);
 
         TextField nameField = new TextField();
+        nameField.getStyleClass().add("dialog-input");
         nameField.setPromptText("e.g. Custom Java Config");
-        if (editing) nameField.setText(existing.getName());
+        if (editing) {
+            nameField.setText(existing.getName() != null ? existing.getName() : "");
+        }
 
         TextField languageField = new TextField();
+        languageField.getStyleClass().add("dialog-input");
         languageField.setPromptText("e.g. Java, C#, Go");
-        if (editing) languageField.setText(existing.getLanguage());
+        if (editing) {
+            languageField.setText(existing.getLanguage() != null ? existing.getLanguage() : "");
+        }
 
         TextField sourceFileField = new TextField();
+        sourceFileField.getStyleClass().add("dialog-input");
         sourceFileField.setPromptText("e.g. Main.java, main.c, app.py");
-        if (editing) sourceFileField.setText(existing.getSourceFileName());
+        if (editing) {
+            sourceFileField.setText(existing.getSourceFileName() != null ? existing.getSourceFileName() : "");
+        }
 
         TextField compileCommandField = new TextField();
+        compileCommandField.getStyleClass().add("dialog-input");
         compileCommandField.setPromptText("e.g. javac Main.java");
-        if (editing) compileCommandField.setText(existing.getCompileCommand());
+        if (editing) {
+            compileCommandField.setText(existing.getCompileCommand() != null ? existing.getCompileCommand() : "");
+        }
 
         TextField runCommandField = new TextField();
+        runCommandField.getStyleClass().add("dialog-input");
         runCommandField.setPromptText("e.g. java Main");
-        if (editing) runCommandField.setText(existing.getRunCommand());
+        if (editing) {
+            runCommandField.setText(existing.getRunCommand() != null ? existing.getRunCommand() : "");
+        }
+
+        TextField expectedOutputPathField = new TextField();
+        expectedOutputPathField.getStyleClass().add("dialog-input");
+        expectedOutputPathField.setPromptText("e.g. /path/to/expected_output.txt");
+        if (editing) {
+            expectedOutputPathField.setText(existing.getExpectedOutputPath() != null ? existing.getExpectedOutputPath() : "");
+        }
+
+        Button browseExpectedButton = new Button("Browse...");
+        browseExpectedButton.getStyleClass().add("side-btn-secondary");
+        browseExpectedButton.setOnAction(event -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Select Expected Output File");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text files", "*.txt", "*.out"));
+            File selected = chooser.showOpenDialog(dialog.getDialogPane().getScene().getWindow());
+            if (selected != null) {
+                expectedOutputPathField.setText(selected.getAbsolutePath());
+            }
+        });
+
+        HBox expectedOutputBox = new HBox(8, expectedOutputPathField, browseExpectedButton);
+        HBox.setHgrow(expectedOutputPathField, Priority.ALWAYS);
+
+        Label validationLabel = new Label("");
+        validationLabel.getStyleClass().add("validation-text");
+        validationLabel.setWrapText(true);
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
@@ -404,21 +693,33 @@ public class MainController {
         grid.add(compileCommandField, 1, 3);
         grid.add(new Label("Run Command:"), 0, 4);
         grid.add(runCommandField, 1, 4);
+        grid.add(new Label("Expected Output:"), 0, 5);
+        grid.add(expectedOutputBox, 1, 5);
+        GridPane.setColumnSpan(expectedOutputBox, 2);
+        grid.add(validationLabel, 0, 6);
+        GridPane.setColumnSpan(validationLabel, 3);
         dialog.getDialogPane().setContent(grid);
 
         Button okButton = (Button) dialog.getDialogPane().lookupButton(saveBtn);
         okButton.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
+            clearDialogFieldErrors(nameField, languageField, sourceFileField, runCommandField);
+            String message = "";
             if (nameField.getText() == null || nameField.getText().trim().isEmpty()) {
-                info(dialog.getTitle(), "Configuration name cannot be empty.");
-                evt.consume();
+                nameField.pseudoClassStateChanged(ERROR, true);
+                message = "Configuration name cannot be empty.";
             } else if (languageField.getText() == null || languageField.getText().trim().isEmpty()) {
-                info(dialog.getTitle(), "Language cannot be empty.");
-                evt.consume();
+                languageField.pseudoClassStateChanged(ERROR, true);
+                message = "Language cannot be empty.";
             } else if (sourceFileField.getText() == null || sourceFileField.getText().trim().isEmpty()) {
-                info(dialog.getTitle(), "Source file cannot be empty.");
-                evt.consume();
+                sourceFileField.pseudoClassStateChanged(ERROR, true);
+                message = "Source file cannot be empty.";
             } else if (runCommandField.getText() == null || runCommandField.getText().trim().isEmpty()) {
-                info(dialog.getTitle(), "Run command cannot be empty.");
+                runCommandField.pseudoClassStateChanged(ERROR, true);
+                message = "Run command cannot be empty.";
+            }
+
+            if (!message.isBlank()) {
+                validationLabel.setText(message);
                 evt.consume();
             }
         });
@@ -433,6 +734,7 @@ public class MainController {
                         ? compileCommandField.getText().trim()
                         : "");
                 cfg.setRunCommand(runCommandField.getText().trim());
+                cfg.setExpectedOutputPath(cleanText(expectedOutputPathField.getText()));
                 cfg.setCompiled(cfg.getCompileCommand() != null && !cfg.getCompileCommand().isBlank());
                 if (editing && !existing.getName().equals(cfg.getName())) {
                     configurationService.removeConfiguration(existing.getName());
@@ -448,9 +750,14 @@ public class MainController {
 
     @FXML
     private void onManageConfigs() {
+        if (isRunning()) {
+            return;
+        }
+
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Manage Configurations");
         dialog.setHeaderText("Saved configurations");
+        styleDialog(dialog);
 
         ListView<String> list = new ListView<>();
         list.setItems(FXCollections.observableArrayList(configurationService.listConfigurationNames()));
@@ -467,12 +774,11 @@ public class MainController {
         box.setPadding(new Insets(10));
         dialog.getDialogPane().setContent(box);
 
-        // New
         Button newBtn = (Button) dialog.getDialogPane().lookupButton(newBtnType);
         newBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
             Configuration created = showCreateConfigurationDialog();
             if (created != null) {
-                refreshLanguageChoices();
+                refreshConfigurationChoices(created.getName());
                 list.setItems(FXCollections.observableArrayList(configurationService.listConfigurationNames()));
                 list.getSelectionModel().select(created.getName());
                 statusLeft.setText("Configuration created: " + created.getName());
@@ -480,7 +786,6 @@ public class MainController {
             evt.consume();
         });
 
-        // Delete
         Button deleteBtn = (Button) dialog.getDialogPane().lookupButton(deleteBtnType);
         deleteBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
             String selected = list.getSelectionModel().getSelectedItem();
@@ -489,13 +794,12 @@ public class MainController {
             } else if (confirm("Delete Configuration", "Delete '" + selected + "'?")) {
                 configurationService.removeConfiguration(selected);
                 list.getItems().remove(selected);
-                refreshLanguageChoices();
+                refreshConfigurationChoices(null);
                 statusLeft.setText("Configuration deleted: " + selected);
             }
             evt.consume();
         });
 
-        // Load / Edit
         Button loadBtn = (Button) dialog.getDialogPane().lookupButton(loadBtnType);
         loadBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
             String selected = list.getSelectionModel().getSelectedItem();
@@ -515,51 +819,91 @@ public class MainController {
                 evt.consume();
                 return;
             }
-            refreshLanguageChoices();
+            refreshConfigurationChoices(edited.getName());
             list.setItems(FXCollections.observableArrayList(configurationService.listConfigurationNames()));
             list.getSelectionModel().select(edited.getName());
             applyConfigurationToForm(edited);
             com.iae.model.Project current = projectService.getCurrentProject();
-            if (current != null) current.setConfiguration(edited);
-            statusLeft.setText("Configuration loaded: " + selected
-                    + " — edit fields and use 'Save Config' to update.");
+            if (current != null) {
+                current.setConfiguration(edited);
+            }
+            statusLeft.setText("Configuration saved and loaded: " + edited.getName());
         });
 
         dialog.showAndWait();
     }
 
-    @FXML private void onShowManual() { info("Manual", "Out of scope for Milestone 2."); }
-    @FXML private void onAbout() { info("About", "CE316 Integrated Assignment Environment\nVersion 1.0.0"); }
-    @FXML private void onExit() { ((Stage) runTestsBtn.getScene().getWindow()).close(); }
+    @FXML
+    private void onShowManual() {
+        info("Manual",
+                "1. Create or open a project.\n"
+                        + "2. Select or save a configuration for the assignment language.\n"
+                        + "3. Choose the folder that contains student ZIP files.\n"
+                        + "4. Choose the expected output text file.\n"
+                        + "5. Run tests and monitor progress in the left panel.\n"
+                        + "6. Use the status filter and Details button to inspect results.");
+    }
+
+    @FXML
+    private void onAbout() {
+        info("About", "CE316 Integrated Assignment Environment\nVersion 1.0.0");
+    }
+
+    @FXML
+    private void onExit() {
+        if (evaluationTask != null) {
+            evaluationTask.cancel();
+        }
+        ((Stage) runTestsBtn.getScene().getWindow()).close();
+    }
 
     @FXML
     private void onBrowseSubmissions() {
+        if (isRunning()) {
+            return;
+        }
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle("Select Submission Folder");
         File dir = chooser.showDialog(runTestsBtn.getScene().getWindow());
         if (dir != null) {
-            // Triggers the text listener which refreshes the submissions table.
             submissionFolderField.setText(dir.getAbsolutePath());
         }
     }
 
     @FXML
     private void onBrowseExpectedOutput() {
+        if (isRunning()) {
+            return;
+        }
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Select Expected Output File");
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text files", "*.txt", "*.out"));
         File f = chooser.showOpenDialog(runTestsBtn.getScene().getWindow());
-        if (f != null) expectedOutputField.setText(f.getAbsolutePath());
+        if (f != null) {
+            expectedOutputField.setText(f.getAbsolutePath());
+        }
     }
 
-    /** Scan the current submissions folder and refresh the Student Submissions table. */
     private void refreshSubmissionsTable() {
         submissionsData.clear();
-        String path = submissionFolderField.getText();
-        if (path == null || path.isBlank()) return;
+        String path = cleanText(submissionFolderField.getText());
+
+        if (path.isBlank()) {
+            submissionTableHint.setText("Choose a folder to preview ZIP files.");
+            statusRight.setText("");
+            updateContextLabels();
+            validateForm();
+            return;
+        }
 
         File folder = new File(path);
-        if (!folder.isDirectory()) return;
+        if (!folder.isDirectory()) {
+            submissionTableHint.setText("Folder is not available.");
+            statusRight.setText("");
+            updateContextLabels();
+            validateForm();
+            return;
+        }
 
         List<File> zips = fileManager.discoverZipFiles(folder);
         for (File zip : zips) {
@@ -568,125 +912,515 @@ public class MainController {
             String size = humanReadableSize(zip.length());
             submissionsData.add(new SubmissionInfo(name, studentId, size));
         }
+
+        submissionTableHint.setText(submissionsData.isEmpty()
+                ? "No ZIP files found in this folder."
+                : submissionsData.size() + " ZIP file(s) ready.");
         statusRight.setText(submissionsData.size() + " submission(s) found.");
+        updateContextLabels();
+        validateForm();
     }
 
     private String humanReadableSize(long bytes) {
-        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024) {
+            return bytes + " B";
+        }
         double kb = bytes / 1024.0;
-        if (kb < 1024) return String.format("%.1f KB", kb);
+        if (kb < 1024) {
+            return String.format("%.1f KB", kb);
+        }
         double mb = kb / 1024.0;
         return String.format("%.2f MB", mb);
     }
 
-    // ---------------------------------------------------------------------
-    // Requirements #7 (compile/run), #8 (output compare), #9 (display).
-    // ---------------------------------------------------------------------
     @FXML
     private void onRunTests() {
+        if (isRunning()) {
+            return;
+        }
+        showValidationMessages = true;
+        if (!validateForm(true)) {
+            statusLeft.setText("Fix highlighted fields before running tests.");
+            return;
+        }
+
+        File submissionsFolder = new File(cleanText(submissionFolderField.getText()));
+        Configuration configuration = readConfigurationFromForm(configurationNameForSave("Runtime Configuration"));
+        File expectedFile = new File(cleanText(expectedOutputField.getText()));
+        String expectedOutput;
+
         try {
-            File submissionsFolder = new File(submissionFolderField.getText());
-            if (!submissionsFolder.exists() || !submissionsFolder.isDirectory()) {
-                info("Error", "Submission folder does not exist or is not a folder.");
-                return;
-            }
-
-            String lang = languageCombo.getValue();
-            if (lang == null || lang.isBlank()) {
-                info("Error", "Please select a language.");
-                return;
-            }
-
-            if (sourceFileField.getText() == null || sourceFileField.getText().isBlank()) {
-                info("Error", "Please enter the source file name.");
-                return;
-            }
-
-            if (runCmdField.getText() == null || runCmdField.getText().isBlank()) {
-                info("Error", "Please enter the run command.");
-                return;
-            }
-
-            Configuration configuration = readConfigurationFromForm(lang + " Configuration");
-
-            String expectedPath = expectedOutputField.getText();
-            if (expectedPath == null || expectedPath.isBlank()) {
-                info("Error", "Please select an expected output file.");
-                return;
-            }
-            File expectedFile = new File(expectedPath);
-            if (!expectedFile.isFile()) {
-                info("Error", "Expected output file not found:\n" + expectedPath);
-                return;
-            }
-            String expectedOutput = Files.readString(expectedFile.toPath());
-
-            resultsData.clear();
-            List<StudentResult> results = projectService.runEvaluation(
-                    submissionsFolder, configuration, expectedOutput);
-            resultsData.addAll(results);
-
-            long passed = results.stream().filter(r -> r.getStatus().isPassed()).count();
-            statusLeft.setText("Evaluation complete: " + passed + " / " + results.size() + " passed.");
-            statusRight.setText(results.size() + " submissions processed.");
-
+            expectedOutput = Files.readString(expectedFile.toPath());
         } catch (Exception e) {
-            info("Execution Error", e.getMessage() != null ? e.getMessage() : e.toString());
+            configValidationLabel.setText("Could not read expected output file: " + e.getMessage());
+            statusLeft.setText("Expected output file could not be read.");
+            validateForm(true);
+            return;
+        }
+
+        com.iae.model.Project current = projectService.getCurrentProject();
+        if (current != null) {
+            current.setSubmissionFolder(submissionsFolder.getAbsolutePath());
+            current.setConfiguration(configuration);
+            projectDirty = true;
+        }
+
+        resultsData.clear();
+        lastRunLabel.setText("Running...");
+        statusLeft.setText("Evaluation started.");
+        statusRight.setText("0 submissions processed.");
+        startEvaluationTask(submissionsFolder, configuration, expectedOutput);
+    }
+
+    private void startEvaluationTask(File submissionsFolder, Configuration configuration, String expectedOutput) {
+        setEvaluationRunning(true);
+
+        evaluationTask = new Task<>() {
+            @Override
+            protected List<StudentResult> call() {
+                return projectService.runEvaluation(
+                        submissionsFolder,
+                        configuration,
+                        expectedOutput,
+                        new ProjectService.EvaluationProgress() {
+                            @Override
+                            public void onSubmissionStarted(String studentId, int completed, int total) {
+                                updateProgress(completed, total);
+                                updateMessage("Processing " + studentId + " (" + (completed + 1) + " / " + total + ")");
+                            }
+
+                            @Override
+                            public void onSubmissionFinished(StudentResult result, int completed, int total) {
+                                Platform.runLater(() -> {
+                                    addOrReplaceResult(result);
+                                    statusRight.setText(completed + " / " + total + " submissions processed.");
+                                });
+                                updateProgress(completed, total);
+                                updateMessage("Processed " + completed + " / " + total + " submissions.");
+                            }
+                        },
+                        this::isCancelled);
+            }
+        };
+
+        runProgress.progressProperty().bind(evaluationTask.progressProperty());
+        currentRunLabel.textProperty().bind(evaluationTask.messageProperty());
+
+        evaluationTask.setOnSucceeded(event -> {
+            Task<List<StudentResult>> completedTask = evaluationTask;
+            if (completedTask != null && completedTask.getValue() != null) {
+                resultsData.setAll(completedTask.getValue());
+            }
+            finishEvaluationRun();
+            int total = resultsData.size();
+            long passed = resultsData.stream().filter(r -> r.getStatus().isPassed()).count();
+            statusLeft.setText("Evaluation complete: " + passed + " / " + total + " passed.");
+            statusRight.setText(total + " submissions processed.");
+            lastRunLabel.setText("Completed " + timestamp());
+            com.iae.model.Project current = projectService.getCurrentProject();
+            if (current != null) {
+                current.setResults(new ArrayList<>(resultsData));
+                projectDirty = true;
+                updateContextLabels();
+            }
+        });
+
+        evaluationTask.setOnCancelled(event -> {
+            finishEvaluationRun();
+            int total = resultsData.size();
+            statusLeft.setText("Evaluation cancelled.");
+            statusRight.setText(total + " submissions processed before cancellation.");
+            lastRunLabel.setText("Cancelled " + timestamp());
+            com.iae.model.Project current = projectService.getCurrentProject();
+            if (current != null) {
+                current.setResults(new ArrayList<>(resultsData));
+                projectDirty = true;
+                updateContextLabels();
+            }
+        });
+
+        evaluationTask.setOnFailed(event -> {
+            Throwable error = evaluationTask.getException();
+            finishEvaluationRun();
+            statusLeft.setText("Evaluation failed.");
+            lastRunLabel.setText("Failed " + timestamp());
+            info("Execution Error", error != null && error.getMessage() != null
+                    ? error.getMessage()
+                    : "Evaluation failed unexpectedly.");
+        });
+
+        Thread worker = new Thread(evaluationTask, "evaluation-worker");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    @FXML
+    private void onCancelRun() {
+        if (evaluationTask != null) {
+            statusLeft.setText("Cancelling evaluation...");
+            evaluationTask.cancel();
         }
     }
 
-    private void applyLanguageDefaults() {
-        String language = languageCombo.getValue();
-        if (language == null) return;
-        Configuration template = configurationService.getFirstConfigurationByLanguage(language);
-        if (template == null) {
-            template = configurationService.createConfiguration(language + " Configuration", language);
-        }
-        sourceFileField.setText(template.getSourceFileName() != null ? template.getSourceFileName() : "");
-        compileCmdField.setText(template.getCompileCommand());
-        runCmdField.setText(template.getRunCommand());
+    private void finishEvaluationRun() {
+        runProgress.progressProperty().unbind();
+        currentRunLabel.textProperty().unbind();
+        currentRunLabel.setText("");
+        runProgress.setProgress(0);
+        evaluationTask = null;
+        setEvaluationRunning(false);
+        updateResultsSummary();
+        updateContextLabels();
+        validateForm();
     }
 
-    private void refreshLanguageChoices() {
-        String selectedLanguage = languageCombo.getValue();
-        List<String> languages = configurationService.listConfiguredLanguages();
+    private void setEvaluationRunning(boolean running) {
+        setManagedVisible(runProgress, running);
+        setManagedVisible(cancelRunBtn, running);
+        cancelRunBtn.setDisable(!running);
 
-        suppressLanguageListener = true;
+        newProjectBtn.setDisable(running);
+        openProjectBtn.setDisable(running);
+        saveProjectBtn.setDisable(running);
+        deleteProjectBtn.setDisable(running);
+        browseSubmissionsBtn.setDisable(running);
+        browseExpectedOutputBtn.setDisable(running);
+        saveConfigBtn.setDisable(running);
+        configCombo.setDisable(running);
+        sourceFileField.setDisable(running);
+        compileCmdField.setDisable(running);
+        runCmdField.setDisable(running);
+        expectedOutputField.setDisable(running);
+        submissionFolderField.setDisable(running);
+        runTestsBtn.setDisable(running || !validateForm(showValidationMessages));
+    }
+
+    private void setManagedVisible(javafx.scene.Node node, boolean visible) {
+        node.setVisible(visible);
+        node.setManaged(visible);
+    }
+
+    private boolean validateForm() {
+        return validateForm(showValidationMessages);
+    }
+
+    private boolean validateForm(boolean showMessages) {
+        if (showMessages) {
+            showValidationMessages = true;
+        }
+
+        boolean folderError = false;
+        boolean configError = false;
+        List<String> folderMessages = new ArrayList<>();
+        List<String> configMessages = new ArrayList<>();
+
+        String folderPath = cleanText(submissionFolderField.getText());
+        if (folderPath.isBlank()) {
+            folderError = true;
+            folderMessages.add("Select a folder containing student ZIP files.");
+        } else {
+            File folder = new File(folderPath);
+            if (!folder.isDirectory()) {
+                folderError = true;
+                folderMessages.add("Submission folder does not exist.");
+            } else if (submissionsData.isEmpty()) {
+                folderError = true;
+                folderMessages.add("No ZIP files were found in this folder.");
+            }
+        }
+
+        if (configCombo.getValue() == null || configCombo.getValue().isBlank()) {
+            configError = true;
+            configMessages.add("Select a saved configuration.");
+        }
+        if (activeConfigurationLanguage.isBlank()) {
+            configError = true;
+            configMessages.add("Configuration language is missing.");
+        }
+        if (sourceFileField.getText() == null || sourceFileField.getText().isBlank()) {
+            configError = true;
+            configMessages.add("Enter the source file name.");
+        }
+        if (runCmdField.getText() == null || runCmdField.getText().isBlank()) {
+            configError = true;
+            configMessages.add("Enter the run command.");
+        }
+
+        String expectedPath = cleanText(expectedOutputField.getText());
+        if (expectedPath.isBlank()) {
+            configError = true;
+            configMessages.add("Select an expected output file.");
+        } else if (!new File(expectedPath).isFile()) {
+            configError = true;
+            configMessages.add("Expected output file was not found.");
+        }
+
+        submissionFolderValidation.setText(showValidationMessages ? String.join(" ", folderMessages) : "");
+        configValidationLabel.setText(showValidationMessages ? String.join(" ", configMessages) : "");
+
+        submissionFolderField.pseudoClassStateChanged(ERROR, showValidationMessages && folderError);
+        configCombo.pseudoClassStateChanged(ERROR, showValidationMessages
+                && (configCombo.getValue() == null || configCombo.getValue().isBlank()));
+        sourceFileField.pseudoClassStateChanged(ERROR, showValidationMessages
+                && (sourceFileField.getText() == null || sourceFileField.getText().isBlank()));
+        runCmdField.pseudoClassStateChanged(ERROR, showValidationMessages
+                && (runCmdField.getText() == null || runCmdField.getText().isBlank()));
+        expectedOutputField.pseudoClassStateChanged(ERROR, showValidationMessages
+                && (expectedPath.isBlank() || !new File(expectedPath).isFile()));
+
+        boolean valid = !folderError && !configError;
+        if (evaluationTask == null) {
+            runTestsBtn.setDisable(!valid);
+        }
+        updateRunTooltip(valid, folderMessages, configMessages);
+        return valid;
+    }
+
+    private void addOrReplaceResult(StudentResult result) {
+        for (int i = 0; i < resultsData.size(); i++) {
+            StudentResult existing = resultsData.get(i);
+            if (existing.getStudentId() != null && existing.getStudentId().equals(result.getStudentId())) {
+                resultsData.set(i, result);
+                return;
+            }
+        }
+        resultsData.add(result);
+    }
+
+    private void loadSelectedConfiguration() {
+        String selectedName = configCombo.getValue();
+        if (selectedName == null || selectedName.isBlank()) {
+            return;
+        }
+        Configuration selected = configurationService.getConfiguration(selectedName);
+        if (selected == null && selectedName.equals(activeConfigurationName)) {
+            selected = readConfigurationFromForm(selectedName);
+        }
+        if (selected != null) {
+            applyConfigurationToForm(selected);
+            markProjectDirty();
+            statusLeft.setText("Configuration selected: " + selectedName);
+        }
+    }
+
+    private void refreshConfigurationChoices(String preferredName) {
+        String selectedName = preferredName != null ? preferredName : configCombo.getValue();
+        List<String> names = configurationService.listConfigurationNames();
+
+        suppressConfigurationListener = true;
         try {
-            languageCombo.setItems(FXCollections.observableArrayList(languages));
-            if (selectedLanguage != null && languages.contains(selectedLanguage)) {
-                languageCombo.getSelectionModel().select(selectedLanguage);
-            } else if (!languages.isEmpty()) {
-                languageCombo.getSelectionModel().selectFirst();
+            configCombo.setItems(FXCollections.observableArrayList(names));
+            if (selectedName != null && names.contains(selectedName)) {
+                configCombo.getSelectionModel().select(selectedName);
+            } else if (!names.isEmpty()) {
+                configCombo.getSelectionModel().selectFirst();
             } else {
-                languageCombo.getSelectionModel().clearSelection();
-                languageCombo.setValue(null);
+                configCombo.getSelectionModel().clearSelection();
+                configCombo.setValue(null);
+                activeConfigurationName = "";
+                activeConfigurationLanguage = "";
+                configLanguageLabel.setText("No language specified");
                 sourceFileField.setText("");
                 compileCmdField.setText("");
                 runCmdField.setText("");
+                expectedOutputField.setText("");
             }
         } finally {
-            suppressLanguageListener = false;
+            suppressConfigurationListener = false;
         }
 
-        if (languageCombo.getValue() != null) {
-            applyLanguageDefaults();
+        if (configCombo.getValue() != null) {
+            Configuration selected = configurationService.getConfiguration(configCombo.getValue());
+            if (selected != null) {
+                applyConfigurationToForm(selected);
+            }
         }
     }
 
     private void clearCurrentProjectView() {
+        suppressFormListeners = true;
         submissionFolderField.setText("");
         expectedOutputField.setText("");
         sourceFileField.setText("");
+        compileCmdField.setText("");
+        runCmdField.setText("");
+        suppressFormListeners = false;
         resultsData.clear();
         submissionsData.clear();
-        refreshLanguageChoices();
+        lastRunLabel.setText("Not run yet");
+        projectDirty = false;
+        configDirty = false;
+        showValidationMessages = false;
+        refreshConfigurationChoices(null);
+        updateResultsSummary();
+        updateContextLabels();
+        validateForm(false);
+    }
+
+    private void applyResultsFilter() {
+        String selected = statusFilterCombo.getValue();
+        filteredResultsData.setPredicate(result -> {
+            if (selected == null || FILTER_ALL.equals(selected)) {
+                return true;
+            }
+            if (FILTER_PASSED.equals(selected)) {
+                return result.getStatus().isPassed();
+            }
+            if (FILTER_FAILED.equals(selected)) {
+                return !result.getStatus().isPassed();
+            }
+            return result.getStatus().display().equals(selected);
+        });
+    }
+
+    private void updateResultsSummary() {
+        int total = resultsData.size();
+        if (total == 0) {
+            resultsSummaryLabel.setText("No results yet");
+            return;
+        }
+
+        int shown = filteredResultsData.size();
+        long passed = filteredResultsData.stream().filter(r -> r.getStatus().isPassed()).count();
+        long failed = shown - passed;
+        long timeout = filteredResultsData.stream().filter(r -> r.getStatus() == TestStatus.TIMEOUT).count();
+        long compile = filteredResultsData.stream().filter(r -> r.getStatus() == TestStatus.COMPILATION_ERROR).count();
+        String prefix = shown == total ? total + " total" : shown + " of " + total + " shown";
+        resultsSummaryLabel.setText(prefix + " - " + passed + " passed - " + failed
+                + " failed - " + compile + " compile - " + timeout + " timeout");
+    }
+
+    private void updateContextLabels() {
+        com.iae.model.Project project = projectService.getCurrentProject();
+        String projectName = project != null && project.getName() != null
+                ? project.getName() + (projectDirty ? " *" : "")
+                : "No active project";
+        setLabelTextWithTooltip(projectNameLabel, projectName);
+
+        String configName = !activeConfigurationName.isBlank()
+                ? activeConfigurationName + (configDirty ? " *" : "")
+                : "No configuration selected";
+        setLabelTextWithTooltip(configNameLabel, configName);
+        setLabelTextWithTooltip(submissionCountLabel, submissionsData.size() + " ZIP file(s)");
+    }
+
+    private String detailsText(StudentResult result) {
+        String details = cleanText(result.getDetails());
+        if (!details.isBlank()) {
+            return details;
+        }
+        if (result.getStatus() != null && result.getStatus().isPassed()) {
+            return "Output matched expected output.";
+        }
+        return "No details recorded.";
+    }
+
+    private String statusStyleClass(TestStatus status) {
+        if (status == null) {
+            return "status-pending";
+        }
+        return switch (status) {
+            case PASSED -> "status-passed";
+            case COMPILATION_ERROR -> "status-compile";
+            case RUNTIME_ERROR -> "status-runtime";
+            case TIMEOUT -> "status-timeout";
+            case OUTPUT_MISMATCH -> "status-mismatch";
+            case EXTRACTION_ERROR, MISSING_SOURCE -> "status-missing";
+            case PENDING -> "status-pending";
+            default -> "status-failed";
+        };
+    }
+
+    private boolean isRunning() {
+        return evaluationTask != null;
+    }
+
+    private String timestamp() {
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+    }
+
+    private String cleanText(String text) {
+        return text == null ? "" : text.trim();
+    }
+
+    private void markFormEdited() {
+        if (!formInitialized || suppressFormListeners) {
+            return;
+        }
+        showValidationMessages = true;
+        markProjectDirty();
+    }
+
+    private void markConfigurationEdited() {
+        if (!formInitialized || suppressFormListeners) {
+            return;
+        }
+        showValidationMessages = true;
+        configDirty = true;
+        markProjectDirty();
+    }
+
+    private void markProjectDirty() {
+        if (projectService.getCurrentProject() != null) {
+            projectDirty = true;
+        }
+        updateContextLabels();
+    }
+
+    private String configurationNameForSave(String fallback) {
+        return !activeConfigurationName.isBlank() ? activeConfigurationName : fallback;
+    }
+
+    private void updateRunTooltip(boolean valid, List<String> folderMessages, List<String> configMessages) {
+        if (valid) {
+            runTestsBtn.setTooltip(new Tooltip("Run the active configuration against discovered submissions."));
+            return;
+        }
+        List<String> reasons = new ArrayList<>();
+        reasons.addAll(folderMessages);
+        reasons.addAll(configMessages);
+        String reason = reasons.isEmpty()
+                ? "Complete the project inputs before running tests."
+                : reasons.get(0);
+        runTestsBtn.setTooltip(new Tooltip(reason));
+    }
+
+    private void updateResultsPlaceholder() {
+        if (resultsData.isEmpty()) {
+            resultsTable.setPlaceholder(new Label("Run tests to see per-student results."));
+        } else if (filteredResultsData.isEmpty()) {
+            resultsTable.setPlaceholder(new Label("No results match the selected filter."));
+        }
+    }
+
+    private void setLabelTextWithTooltip(Label label, String text) {
+        label.setText(text);
+        label.setTooltip(new Tooltip(text));
+    }
+
+    private void clearDialogFieldErrors(TextField... fields) {
+        for (TextField field : fields) {
+            field.pseudoClassStateChanged(ERROR, false);
+        }
+    }
+
+    private void styleDialog(Dialog<?> dialog) {
+        String stylesheet = getClass().getResource("/css/styles.css").toExternalForm();
+        dialog.getDialogPane().getStylesheets().add(stylesheet);
+        dialog.getDialogPane().getStyleClass().add("app-dialog");
+    }
+
+    private void styleAlert(Alert alert) {
+        String stylesheet = getClass().getResource("/css/styles.css").toExternalForm();
+        alert.getDialogPane().getStylesheets().add(stylesheet);
+        alert.getDialogPane().getStyleClass().add("app-dialog");
     }
 
     private void info(String title, String body) {
         Alert a = new Alert(Alert.AlertType.INFORMATION, body, ButtonType.OK);
         a.setTitle(title);
         a.setHeaderText(title);
+        styleAlert(a);
         a.showAndWait();
     }
 
@@ -694,6 +1428,7 @@ public class MainController {
         Alert a = new Alert(Alert.AlertType.CONFIRMATION, body, ButtonType.OK, ButtonType.CANCEL);
         a.setTitle(title);
         a.setHeaderText(title);
+        styleAlert(a);
         return a.showAndWait().filter(b -> b == ButtonType.OK).isPresent();
     }
 
@@ -702,12 +1437,13 @@ public class MainController {
         alert.setTitle("Student Result Details");
         alert.setHeaderText("Result for Student: " + result.getStudentId()
                 + "\nStatus: " + result.getStatus().display());
+        styleAlert(alert);
 
-        TextArea textArea = new TextArea(result.getDetails());
+        TextArea textArea = new TextArea(detailsText(result));
         textArea.setEditable(false);
         textArea.setWrapText(true);
-        textArea.setPrefWidth(500);
-        textArea.setPrefHeight(300);
+        textArea.setPrefWidth(560);
+        textArea.setPrefHeight(320);
 
         alert.getDialogPane().setContent(textArea);
         alert.showAndWait();

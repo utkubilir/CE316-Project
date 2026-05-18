@@ -9,6 +9,7 @@ import com.iae.repository.ProjectRepository;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 public class ProjectService {
 
@@ -49,10 +50,25 @@ public class ProjectService {
         this.currentProject = currentProject;
     }
 
+    public interface EvaluationProgress {
+        void onSubmissionStarted(String studentId, int completed, int total);
+        void onSubmissionFinished(StudentResult result, int completed, int total);
+    }
+
     public List<StudentResult> runEvaluation(
             File submissionsFolder,
             Configuration configuration,
             String expectedOutput
+    ) {
+        return runEvaluation(submissionsFolder, configuration, expectedOutput, null, () -> false);
+    }
+
+    public List<StudentResult> runEvaluation(
+            File submissionsFolder,
+            Configuration configuration,
+            String expectedOutput,
+            EvaluationProgress progress,
+            BooleanSupplier cancelled
     ) {
 
         List<StudentResult> results =
@@ -68,7 +84,18 @@ public class ProjectService {
             workingDirectory.mkdirs();
         }
 
+        int total = zipFiles.size();
+        int completed = 0;
+
         for (File zipFile : zipFiles) {
+            if (cancelled != null && cancelled.getAsBoolean()) {
+                break;
+            }
+
+            String zipStudentId = studentIdFromZip(zipFile);
+            if (progress != null) {
+                progress.onSubmissionStarted(zipStudentId, completed, total);
+            }
 
             try {
 
@@ -89,13 +116,15 @@ public class ProjectService {
 
                 if (sourceFile == null) {
 
-                    results.add(
-                            new StudentResult(
-                                    studentId,
-                                    com.iae.model.TestStatus.MISSING_SOURCE,
-                                    "Source file not found."
-                            )
-                    );
+                    StudentResult missingSource = new StudentResult(
+                            studentId,
+                            com.iae.model.TestStatus.MISSING_SOURCE,
+                            "Source file not found.");
+                    results.add(missingSource);
+                    completed++;
+                    if (progress != null) {
+                        progress.onSubmissionFinished(missingSource, completed, total);
+                    }
 
                     continue;
                 }
@@ -110,19 +139,31 @@ public class ProjectService {
                         );
 
                 results.add(result);
+                completed++;
+                if (progress != null) {
+                    progress.onSubmissionFinished(result, completed, total);
+                }
 
             } catch (Exception e) {
 
-                results.add(
-                        new StudentResult(
-                                zipFile.getName(),
-                                com.iae.model.TestStatus.EXTRACTION_ERROR,
-                                e.getMessage()
-                        )
-                );
+                StudentResult extractionError = new StudentResult(
+                        zipFile.getName(),
+                        com.iae.model.TestStatus.EXTRACTION_ERROR,
+                        e.getMessage());
+                results.add(extractionError);
+                completed++;
+                if (progress != null) {
+                    progress.onSubmissionFinished(extractionError, completed, total);
+                }
             }
         }
 
         return results;
+    }
+
+    private String studentIdFromZip(File zipFile) {
+        String fileName = zipFile.getName();
+        int dot = fileName.lastIndexOf(".");
+        return dot > 0 ? fileName.substring(0, dot) : fileName;
     }
 }
