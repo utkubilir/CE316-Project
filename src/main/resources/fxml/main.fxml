@@ -10,6 +10,7 @@
 <?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.control.SeparatorMenuItem?>
 <?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Tab?>
 <?import javafx.scene.control.TabPane?>
 <?import javafx.scene.control.TableColumn?>
@@ -139,75 +140,82 @@
     <center>
         <VBox spacing="0">
             <children>
-                <TabPane fx:id="mainTabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS" styleClass="main-tabs">
+                <TabPane fx:id="mainTabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS" styleClass="main-tabs"
+                         minHeight="180">
                     <tabs>
                         <Tab text="Configuration">
                             <content>
-                                <VBox spacing="12" styleClass="config-pane">
-                                    <padding><Insets top="18" right="18" bottom="18" left="18"/></padding>
-                                    <children>
-                                        <GridPane hgap="12" vgap="12">
-                                            <columnConstraints>
-                                                <ColumnConstraints minWidth="140" prefWidth="150"/>
-                                                <ColumnConstraints hgrow="ALWAYS"/>
-                                                <ColumnConstraints minWidth="90"/>
-                                            </columnConstraints>
-                                            <rowConstraints>
-                                                <RowConstraints/>
-                                                <RowConstraints/>
-                                                <RowConstraints/>
-                                                <RowConstraints/>
-                                                <RowConstraints/>
-                                                <RowConstraints/>
-                                            </rowConstraints>
-
-                                            <Label text="Configuration:" GridPane.rowIndex="0" GridPane.columnIndex="0"
-                                                   labelFor="$configCombo"/>
-                                            <ComboBox fx:id="configCombo" GridPane.rowIndex="0" GridPane.columnIndex="1"
-                                                      maxWidth="320"/>
-                                            <Button text="Manage..." GridPane.rowIndex="0" GridPane.columnIndex="2"
-                                                    maxWidth="Infinity" onAction="#onManageConfigs"/>
-
-                                            <Label text="Language:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                                            <Label fx:id="configLanguageLabel" text="No language specified"
-                                                   styleClass="readonly-value" GridPane.rowIndex="1" GridPane.columnIndex="1"
-                                                   GridPane.columnSpan="2"/>
-
-                                            <Label text="Source File:" GridPane.rowIndex="2" GridPane.columnIndex="0"
-                                                   labelFor="$sourceFileField"/>
-                                            <TextField fx:id="sourceFileField" promptText="main.c"
-                                                       GridPane.rowIndex="2" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
-
-                                            <Label text="Compile Command:" GridPane.rowIndex="3" GridPane.columnIndex="0"
-                                                   labelFor="$compileCmdField"/>
-                                            <TextField fx:id="compileCmdField" promptText="/usr/bin/gcc main.c -o main"
-                                                       GridPane.rowIndex="3" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
-
-                                            <Label text="Run Command:" GridPane.rowIndex="4" GridPane.columnIndex="0"
-                                                   labelFor="$runCmdField"/>
-                                            <TextField fx:id="runCmdField" promptText="./main arg1 arg2 arg3"
-                                                       GridPane.rowIndex="4" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
-
-                                            <Label text="Expected Output File:" GridPane.rowIndex="5" GridPane.columnIndex="0"
-                                                   labelFor="$expectedOutputField"/>
-                                            <TextField fx:id="expectedOutputField" promptText="expected_output.txt"
-                                                       GridPane.rowIndex="5" GridPane.columnIndex="1"/>
-                                            <Button fx:id="browseExpectedOutputBtn" text="Browse..." GridPane.rowIndex="5" GridPane.columnIndex="2"
-                                                    accessibleText="Choose expected output file"
-                                                    maxWidth="Infinity" onAction="#onBrowseExpectedOutput"/>
-                                        </GridPane>
-
-                                        <Label fx:id="configValidationLabel" text="" styleClass="validation-text" wrapText="true"/>
-
-                                        <HBox alignment="CENTER_RIGHT">
+                                <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                                            styleClass="config-scroll">
+                                    <content>
+                                        <VBox spacing="12" styleClass="config-pane">
+                                            <padding><Insets top="18" right="18" bottom="18" left="18"/></padding>
                                             <children>
-                                                <Button fx:id="saveConfigBtn" text="Save Config As..." styleClass="save-btn"
-                                                        accessibleText="Save current configuration under a name"
-                                                        onAction="#onSaveConfig"/>
+                                                <GridPane hgap="12" vgap="12" maxWidth="Infinity">
+                                                    <columnConstraints>
+                                                        <ColumnConstraints minWidth="140" prefWidth="150"/>
+                                                        <ColumnConstraints hgrow="ALWAYS"/>
+                                                        <ColumnConstraints minWidth="90"/>
+                                                    </columnConstraints>
+                                                    <rowConstraints>
+                                                        <RowConstraints/>
+                                                        <RowConstraints/>
+                                                        <RowConstraints/>
+                                                        <RowConstraints/>
+                                                        <RowConstraints/>
+                                                        <RowConstraints/>
+                                                    </rowConstraints>
+
+                                                    <Label text="Configuration:" GridPane.rowIndex="0" GridPane.columnIndex="0"
+                                                           labelFor="$configCombo"/>
+                                                    <ComboBox fx:id="configCombo" GridPane.rowIndex="0" GridPane.columnIndex="1"
+                                                              maxWidth="320"/>
+                                                    <Button text="Manage..." GridPane.rowIndex="0" GridPane.columnIndex="2"
+                                                            maxWidth="Infinity" onAction="#onManageConfigs"/>
+
+                                                    <Label text="Language:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                                                    <Label fx:id="configLanguageLabel" text="No language specified"
+                                                           styleClass="readonly-value" maxWidth="Infinity"
+                                                           GridPane.rowIndex="1" GridPane.columnIndex="1"
+                                                           GridPane.columnSpan="2"/>
+
+                                                    <Label text="Source File:" GridPane.rowIndex="2" GridPane.columnIndex="0"
+                                                           labelFor="$sourceFileField"/>
+                                                    <TextField fx:id="sourceFileField" promptText="main.c"
+                                                               GridPane.rowIndex="2" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+                                                    <Label text="Compile Command:" GridPane.rowIndex="3" GridPane.columnIndex="0"
+                                                           labelFor="$compileCmdField"/>
+                                                    <TextField fx:id="compileCmdField" promptText="/usr/bin/gcc main.c -o main"
+                                                               GridPane.rowIndex="3" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+                                                    <Label text="Run Command:" GridPane.rowIndex="4" GridPane.columnIndex="0"
+                                                           labelFor="$runCmdField"/>
+                                                    <TextField fx:id="runCmdField" promptText="./main arg1 arg2 arg3"
+                                                               GridPane.rowIndex="4" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+                                                    <Label text="Expected Output File:" GridPane.rowIndex="5" GridPane.columnIndex="0"
+                                                           labelFor="$expectedOutputField"/>
+                                                    <TextField fx:id="expectedOutputField" promptText="expected_output.txt"
+                                                               GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+                                                    <Button fx:id="browseExpectedOutputBtn" text="Browse..." GridPane.rowIndex="5" GridPane.columnIndex="2"
+                                                            accessibleText="Choose expected output file"
+                                                            maxWidth="Infinity" onAction="#onBrowseExpectedOutput"/>
+                                                </GridPane>
+
+                                                <Label fx:id="configValidationLabel" text="" styleClass="validation-text" wrapText="true"/>
+
+                                                <HBox alignment="CENTER_RIGHT">
+                                                    <children>
+                                                        <Button fx:id="saveConfigBtn" text="Save Config As..." styleClass="save-btn"
+                                                                accessibleText="Save current configuration under a name"
+                                                                onAction="#onSaveConfig"/>
+                                                    </children>
+                                                </HBox>
                                             </children>
-                                        </HBox>
-                                    </children>
-                                </VBox>
+                                        </VBox>
+                                    </content>
+                                </ScrollPane>
                             </content>
                         </Tab>
 

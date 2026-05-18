@@ -34,6 +34,7 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -614,6 +615,7 @@ public class MainController {
         dialog.setTitle(editing ? "Edit Configuration" : "New Configuration");
         dialog.setHeaderText(editing ? "Edit configuration" : "Create a new configuration");
         styleDialog(dialog);
+        dialog.getDialogPane().setPrefWidth(660);
 
         ButtonType saveBtn = new ButtonType(editing ? "Save" : "Create", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(saveBtn, ButtonType.CANCEL);
@@ -660,6 +662,17 @@ public class MainController {
             expectedOutputPathField.setText(existing.getExpectedOutputPath() != null ? existing.getExpectedOutputPath() : "");
         }
 
+        for (TextField field : List.of(
+                nameField,
+                languageField,
+                sourceFileField,
+                compileCommandField,
+                runCommandField,
+                expectedOutputPathField
+        )) {
+            field.setMaxWidth(Double.MAX_VALUE);
+        }
+
         Button browseExpectedButton = new Button("Browse...");
         browseExpectedButton.getStyleClass().add("side-btn-secondary");
         browseExpectedButton.setOnAction(event -> {
@@ -673,6 +686,7 @@ public class MainController {
         });
 
         HBox expectedOutputBox = new HBox(8, expectedOutputPathField, browseExpectedButton);
+        expectedOutputBox.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(expectedOutputPathField, Priority.ALWAYS);
 
         Label validationLabel = new Label("");
@@ -683,6 +697,12 @@ public class MainController {
         grid.setHgap(10);
         grid.setVgap(10);
         grid.setPadding(new Insets(10));
+        ColumnConstraints labelColumn = new ColumnConstraints();
+        labelColumn.setMinWidth(130);
+        ColumnConstraints fieldColumn = new ColumnConstraints();
+        fieldColumn.setHgrow(Priority.ALWAYS);
+        grid.getColumnConstraints().addAll(labelColumn, fieldColumn);
+
         grid.add(new Label("Name:"), 0, 0);
         grid.add(nameField, 1, 0);
         grid.add(new Label("Language:"), 0, 1);
@@ -695,9 +715,9 @@ public class MainController {
         grid.add(runCommandField, 1, 4);
         grid.add(new Label("Expected Output:"), 0, 5);
         grid.add(expectedOutputBox, 1, 5);
-        GridPane.setColumnSpan(expectedOutputBox, 2);
+        GridPane.setHgrow(expectedOutputBox, Priority.ALWAYS);
         grid.add(validationLabel, 0, 6);
-        GridPane.setColumnSpan(validationLabel, 3);
+        GridPane.setColumnSpan(validationLabel, 2);
         dialog.getDialogPane().setContent(grid);
 
         Button okButton = (Button) dialog.getDialogPane().lookupButton(saveBtn);

@@ -162,6 +162,16 @@
 }
 
 /* ---- Config pane ---- */
+.config-scroll {
+    -fx-background: white;
+    -fx-background-color: white;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+.config-scroll > .viewport {
+    -fx-background-color: white;
+}
+
 .config-pane {
     -fx-background-color: white;
 }
