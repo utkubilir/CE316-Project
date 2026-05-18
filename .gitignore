@@ -1,0 +1,11 @@
+target/
+*.class
+
+# Local runtime data
+working_directory/
+iae_projects.db
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
