@@ -131,4 +131,18 @@ public class ConfigurationService {
         repository.save(createConfiguration("Java Configuration",   "Java"));
         repository.save(createConfiguration("Python Configuration", "Python"));
     }
+
+    public void exportConfiguration(Configuration config, java.io.File dest) throws java.io.IOException {
+        com.google.gson.Gson gson = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
+        try (java.io.FileWriter writer = new java.io.FileWriter(dest)) {
+            gson.toJson(config, writer);
+        }
+    }
+
+    public Configuration importConfiguration(java.io.File source) throws java.io.IOException {
+        com.google.gson.Gson gson = new com.google.gson.Gson();
+        try (java.io.FileReader reader = new java.io.FileReader(source)) {
+            return gson.fromJson(reader, Configuration.class);
+        }
+    }
 }

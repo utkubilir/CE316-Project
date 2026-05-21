@@ -43,8 +43,8 @@
                                 <MenuItem text="Save Project" onAction="#onSaveProject"/>
                                 <MenuItem text="Delete Project..." onAction="#onDeleteProject"/>
                                 <SeparatorMenuItem/>
-                                <MenuItem text="Import Configuration (Coming Soon)" disable="true"/>
-                                <MenuItem text="Export Configuration (Coming Soon)" disable="true"/>
+                                <MenuItem text="Import Configuration" onAction="#onImportConfig"/>
+                                <MenuItem text="Export Configuration" onAction="#onExportConfig"/>
                                 <SeparatorMenuItem/>
                                 <MenuItem text="Exit" onAction="#onExit"/>
                             </items>

@@ -37,6 +37,14 @@ java -jar target/ce316-iae-1.0.0.jar
 
 Java 21 or newer is required.
 
+## Windows Installer
+
+To create a Windows installer:
+1. Build the jar file using `mvn clean package`.
+2. Open the `installer.iss` script with [Inno Setup](https://jrsoftware.org/isinfo.php).
+3. Compile the script to generate the `CE316-IAE-Installer.exe` inside the `installer` directory.
+
+
 ## Release
 
 Prototype release:

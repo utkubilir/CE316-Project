@@ -854,14 +854,83 @@ public class MainController {
     }
 
     @FXML
+    private void onImportConfig() {
+        if (isRunning()) return;
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Import Configuration");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON files", "*.json"));
+        File source = chooser.showOpenDialog(runTestsBtn.getScene().getWindow());
+
+        if (source != null) {
+            try {
+                Configuration imported = configurationService.importConfiguration(source);
+                configurationService.saveConfiguration(imported);
+                refreshConfigurationChoices(imported.getName());
+                statusLeft.setText("Configuration imported: " + imported.getName());
+            } catch (Exception e) {
+                info("Error", "Could not import configuration: " + e.getMessage());
+            }
+        }
+    }
+
+    @FXML
+    private void onExportConfig() {
+        if (isRunning()) return;
+
+        Configuration cfg = readConfigurationFromForm(activeConfigurationName.isBlank() ? "Exported_Config" : activeConfigurationName);
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Export Configuration");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON files", "*.json"));
+        chooser.setInitialFileName(cfg.getName().replaceAll("[^a-zA-Z0-9.-]", "_") + ".json");
+        File dest = chooser.showSaveDialog(runTestsBtn.getScene().getWindow());
+
+        if (dest != null) {
+            try {
+                configurationService.exportConfiguration(cfg, dest);
+                statusLeft.setText("Configuration exported successfully.");
+            } catch (Exception e) {
+                info("Error", "Could not export configuration: " + e.getMessage());
+            }
+        }
+    }
+
+    @FXML
     private void onShowManual() {
-        info("Manual",
-                "1. Create or open a project.\n"
-                        + "2. Select or save a configuration for the assignment language.\n"
-                        + "3. Choose the folder that contains student ZIP files.\n"
-                        + "4. Choose the expected output text file.\n"
-                        + "5. Run tests and monitor progress in the left panel.\n"
-                        + "6. Use the status filter and Details button to inspect results.");
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("CE316 IAE User Manual");
+        dialog.setHeaderText("Integrated Assignment Environment Manual");
+        styleDialog(dialog);
+
+        TextArea textArea = new TextArea(
+                "Welcome to the CE316 Integrated Assignment Environment!\n\n" +
+                "1. Projects:\n" +
+                "   - Use 'File -> New Project' to start a new evaluation session.\n" +
+                "   - 'Open Project' loads a previously saved session including results.\n\n" +
+                "2. Configurations:\n" +
+                "   - Select an existing configuration from the dropdown or manage them in 'Configuration -> Manage Configurations...'\n" +
+                "   - You can also 'Import' and 'Export' configurations from JSON files under the 'File' menu.\n" +
+                "   - A configuration requires a source file name, compile command (optional for interpreted languages), and run command.\n\n" +
+                "3. Student Submissions:\n" +
+                "   - Click 'Browse...' to select the folder containing student ZIP files.\n" +
+                "   - The ZIP file name (without extension) is treated as the student ID.\n\n" +
+                "4. Evaluation:\n" +
+                "   - Select an Expected Output file (.txt or .out).\n" +
+                "   - Click 'Run Tests' to evaluate all submissions. The tool will automatically extract each ZIP, compile (if needed), and run the code.\n" +
+                "   - Output will be compared against the expected output.\n\n" +
+                "5. Results:\n" +
+                "   - Use the filter dropdown to view 'Passed', 'Failed', etc.\n" +
+                "   - Double-click a row or click 'Details' to view the full compiler/runtime output for a student."
+        );
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+        textArea.setPrefWidth(600);
+        textArea.setPrefHeight(400);
+
+        dialog.getDialogPane().setContent(textArea);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.showAndWait();
     }
 
     @FXML
