@@ -3,9 +3,8 @@ package com.iae.service;
 import com.iae.model.StudentResult;
 import com.iae.model.TestStatus;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -35,11 +34,13 @@ public class ExecutionEngine {
             pb.directory(workingDirectory);
             pb.redirectErrorStream(true);
 
+            File tempOut = File.createTempFile("compile_out", ".txt");
+            pb.redirectOutput(tempOut);
+
             Process process = pb.start();
-
-            String output = readAll(process);
-
             int exitCode = process.waitFor();
+            String output = Files.readString(tempOut.toPath());
+            tempOut.delete();
 
             if (exitCode == 0) {
                 return "SUCCESS";
@@ -65,18 +66,24 @@ public class ExecutionEngine {
             pb.directory(workingDirectory);
             pb.redirectErrorStream(true);
 
-            Process process = pb.start();
+            File tempOut = File.createTempFile("run_out", ".txt");
+            pb.redirectOutput(tempOut);
 
-            String output = readAll(process);
+            Process process = pb.start();
 
             boolean finished = process.waitFor(10, TimeUnit.SECONDS);
 
             if (!finished) {
+                process.descendants().forEach(ProcessHandle::destroyForcibly);
                 process.destroyForcibly();
+                process.waitFor(); // Wait for it to actually die
+                tempOut.delete();
                 return "TIMEOUT";
             }
 
             int exitCode = process.exitValue();
+            String output = Files.readString(tempOut.toPath());
+            tempOut.delete();
 
             if (exitCode != 0) {
                 return "RUNTIME_ERROR\nExit code " + exitCode + "\n" + output;
@@ -178,17 +185,7 @@ public class ExecutionEngine {
         return tokens;
     }
 
-    private String readAll(Process process) throws Exception {
-        StringBuilder output = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
-            }
-        }
-        return output.toString();
-    }
+
 
     private String normalizeOutput(String text) {
         if (text == null) return "";

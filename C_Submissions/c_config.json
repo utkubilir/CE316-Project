@@ -1,0 +1,9 @@
+{
+  "name": "C Configuration",
+  "language": "C",
+  "sourceFileName": "main.c",
+  "compileCommand": "gcc main.c -o main.exe",
+  "runCommand": "main.exe",
+  "runArgs": [],
+  "compiled": true
+}

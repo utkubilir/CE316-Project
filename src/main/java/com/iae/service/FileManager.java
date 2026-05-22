@@ -36,7 +36,7 @@ public class FileManager {
         return zipFiles;
     }
     public File extractZip(File zipFile,
-                       File targetDirectory) {
+                       File targetDirectory) throws java.io.IOException {
 
     String fileName = zipFile.getName();
 
@@ -48,6 +48,13 @@ public class FileManager {
 
     if (!studentFolder.exists()) {
         studentFolder.mkdirs();
+    }
+
+    // Validate the zip file structure. ZipInputStream is lenient and might
+    // just return null on getNextEntry() for corrupted zips, avoiding an Exception.
+    // java.util.zip.ZipFile enforces the Central Directory structure and throws.
+    try (java.util.zip.ZipFile zf = new java.util.zip.ZipFile(zipFile)) {
+        // Just checking if it's a valid zip.
     }
 
     try (ZipInputStream zis =
@@ -90,10 +97,7 @@ public class FileManager {
             zis.closeEntry();
         }
 
-    } catch (Exception e) {
-
-        e.printStackTrace();
-    }
+    } // removed catch block to let IOException propagate
 
     return studentFolder;
     }

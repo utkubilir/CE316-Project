@@ -80,9 +80,10 @@ public class ProjectService {
         File workingDirectory =
                 new File("working_directory");
 
-        if (!workingDirectory.exists()) {
-            workingDirectory.mkdirs();
+        if (workingDirectory.exists()) {
+            deleteDirectory(workingDirectory);
         }
+        workingDirectory.mkdirs();
 
         int total = zipFiles.size();
         int completed = 0;
@@ -163,7 +164,22 @@ public class ProjectService {
 
     private String studentIdFromZip(File zipFile) {
         String fileName = zipFile.getName();
-        int dot = fileName.lastIndexOf(".");
-        return dot > 0 ? fileName.substring(0, dot) : fileName;
+        return fileName.substring(0, fileName.lastIndexOf("."));
+    }
+
+    private void deleteDirectory(File dir) {
+        if (dir.exists()) {
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        deleteDirectory(file);
+                    } else {
+                        file.delete();
+                    }
+                }
+            }
+            dir.delete();
+        }
     }
 }
