@@ -69,12 +69,14 @@ public class MainController {
             "status-pending"
     );
 
-    @FXML private TextField submissionFolderField;
     @FXML private ComboBox<String> configCombo;
+    @FXML private Label expectedOutputHintLabel;
     @FXML private TextField sourceFileField;
     @FXML private TextField compileCmdField;
     @FXML private TextField runCmdField;
     @FXML private TextField expectedOutputField;
+    @FXML private TextField submissionFolderField;
+    @FXML private TextArea expectedOutputTextArea;
     @FXML private Button runTestsBtn;
     @FXML private Button cancelRunBtn;
     @FXML private Button newProjectBtn;
@@ -90,7 +92,7 @@ public class MainController {
     @FXML private Label configNameLabel;
     @FXML private Label submissionCountLabel;
     @FXML private Label lastRunLabel;
-    @FXML private Label submissionFolderValidation;
+    @FXML private Label projectValidationLabel;
     @FXML private Label configValidationLabel;
     @FXML private Label configLanguageLabel;
     @FXML private Label submissionTableHint;
@@ -279,8 +281,9 @@ public class MainController {
             validateForm();
         });
         expectedOutputField.textProperty().addListener((obs, oldVal, newVal) -> {
-            markConfigurationEdited();
+            markProjectDirty();
             validateForm();
+            loadExpectedOutputContent();
         });
         resultsData.addListener((javafx.collections.ListChangeListener<StudentResult>) change -> {
             updateResultsSummary();
@@ -431,7 +434,6 @@ public class MainController {
             sourceFileField.setText(c.getSourceFileName() != null ? c.getSourceFileName() : "");
             compileCmdField.setText(c.getCompileCommand() != null ? c.getCompileCommand() : "");
             runCmdField.setText(c.getRunCommand() != null ? c.getRunCommand() : "");
-            expectedOutputField.setText(c.getExpectedOutputPath() != null ? c.getExpectedOutputPath() : "");
         } finally {
             suppressFormListeners = false;
             suppressConfigurationListener = false;
@@ -446,7 +448,6 @@ public class MainController {
         cfg.setSourceFileName(cleanText(sourceFileField.getText()));
         cfg.setCompileCommand(cleanText(compileCmdField.getText()));
         cfg.setRunCommand(cleanText(runCmdField.getText()));
-        cfg.setExpectedOutputPath(cleanText(expectedOutputField.getText()));
         cfg.setCompiled(cfg.getCompileCommand() != null && !cfg.getCompileCommand().isBlank());
         return cfg;
     }
@@ -474,6 +475,7 @@ public class MainController {
             if (p != null) {
                 projectService.setCurrentProject(p);
                 submissionFolderField.setText(p.getSubmissionFolder() != null ? p.getSubmissionFolder() : "");
+                expectedOutputField.setText(p.getExpectedOutputPath() != null ? p.getExpectedOutputPath() : "");
                 if (p.getConfiguration() != null) {
                     applyConfigurationToForm(p.getConfiguration());
                 }
@@ -506,6 +508,7 @@ public class MainController {
         }
 
         p.setSubmissionFolder(cleanText(submissionFolderField.getText()));
+        p.setExpectedOutputPath(cleanText(expectedOutputField.getText()));
         p.setConfiguration(readConfigurationFromForm(configurationNameForSave(p.getName() + " Config")));
         p.setResults(new ArrayList<>(resultsData));
 
@@ -655,39 +658,15 @@ public class MainController {
             runCommandField.setText(existing.getRunCommand() != null ? existing.getRunCommand() : "");
         }
 
-        TextField expectedOutputPathField = new TextField();
-        expectedOutputPathField.getStyleClass().add("dialog-input");
-        expectedOutputPathField.setPromptText("e.g. /path/to/expected_output.txt");
-        if (editing) {
-            expectedOutputPathField.setText(existing.getExpectedOutputPath() != null ? existing.getExpectedOutputPath() : "");
-        }
-
         for (TextField field : List.of(
                 nameField,
                 languageField,
                 sourceFileField,
                 compileCommandField,
-                runCommandField,
-                expectedOutputPathField
+                runCommandField
         )) {
             field.setMaxWidth(Double.MAX_VALUE);
         }
-
-        Button browseExpectedButton = new Button("Browse...");
-        browseExpectedButton.getStyleClass().add("side-btn-secondary");
-        browseExpectedButton.setOnAction(event -> {
-            FileChooser chooser = new FileChooser();
-            chooser.setTitle("Select Expected Output File");
-            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text files", "*.txt", "*.out"));
-            File selected = chooser.showOpenDialog(dialog.getDialogPane().getScene().getWindow());
-            if (selected != null) {
-                expectedOutputPathField.setText(selected.getAbsolutePath());
-            }
-        });
-
-        HBox expectedOutputBox = new HBox(8, expectedOutputPathField, browseExpectedButton);
-        expectedOutputBox.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(expectedOutputPathField, Priority.ALWAYS);
 
         Label validationLabel = new Label("");
         validationLabel.getStyleClass().add("validation-text");
@@ -713,10 +692,7 @@ public class MainController {
         grid.add(compileCommandField, 1, 3);
         grid.add(new Label("Run Command:"), 0, 4);
         grid.add(runCommandField, 1, 4);
-        grid.add(new Label("Expected Output:"), 0, 5);
-        grid.add(expectedOutputBox, 1, 5);
-        GridPane.setHgrow(expectedOutputBox, Priority.ALWAYS);
-        grid.add(validationLabel, 0, 6);
+        grid.add(validationLabel, 0, 5);
         GridPane.setColumnSpan(validationLabel, 2);
         dialog.getDialogPane().setContent(grid);
 
@@ -754,7 +730,6 @@ public class MainController {
                         ? compileCommandField.getText().trim()
                         : "");
                 cfg.setRunCommand(runCommandField.getText().trim());
-                cfg.setExpectedOutputPath(cleanText(expectedOutputPathField.getText()));
                 cfg.setCompiled(cfg.getCompileCommand() != null && !cfg.getCompileCommand().isBlank());
                 if (editing && !existing.getName().equals(cfg.getName())) {
                     configurationService.removeConfiguration(existing.getName());
@@ -973,12 +948,78 @@ public class MainController {
         }
     }
 
+    private void loadExpectedOutputContent() {
+        String path = cleanText(expectedOutputField.getText());
+        if (path.isBlank()) {
+            expectedOutputHintLabel.setText("No file loaded");
+            expectedOutputTextArea.setText("");
+            return;
+        }
+
+        File file = new File(path);
+        if (!file.exists() || !file.isFile()) {
+            expectedOutputHintLabel.setText("File not found: " + file.getName());
+            expectedOutputTextArea.setText("");
+            return;
+        }
+
+        try {
+            String content = Files.readString(file.toPath());
+            expectedOutputTextArea.setText(content);
+            expectedOutputHintLabel.setText("Loaded: " + file.getAbsolutePath());
+        } catch (Exception e) {
+            expectedOutputHintLabel.setText("Could not read file: " + file.getName());
+            expectedOutputTextArea.setText("");
+        }
+    }
+
+    @FXML
+    private void onSaveExpectedOutput() {
+        if (isRunning()) return;
+
+        String path = cleanText(expectedOutputField.getText());
+        File file;
+
+        if (path.isBlank()) {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Save Expected Output");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text files", "*.txt", "*.out"));
+            File dest = chooser.showSaveDialog(runTestsBtn.getScene().getWindow());
+            if (dest == null) {
+                return;
+            }
+            file = dest;
+            expectedOutputField.setText(file.getAbsolutePath());
+        } else {
+            file = new File(path);
+        }
+
+        try {
+            Files.writeString(file.toPath(), expectedOutputTextArea.getText() != null ? expectedOutputTextArea.getText() : "");
+            expectedOutputHintLabel.setText("Saved: " + file.getAbsolutePath());
+            info("Expected Output Saved", "Successfully saved changes to expected output.");
+        } catch (Exception e) {
+            info("Error", "Could not save expected output: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void onClearExpectedOutput() {
+        if (isRunning()) return;
+        
+        if (confirm("Clear Expected Output", "This will remove the expected output file from the current project. Continue?")) {
+            expectedOutputField.setText("");
+            expectedOutputTextArea.setText("");
+            expectedOutputHintLabel.setText("No file loaded");
+        }
+    }
+
     private void refreshSubmissionsTable() {
         submissionsData.clear();
         String path = cleanText(submissionFolderField.getText());
 
         if (path.isBlank()) {
-            submissionTableHint.setText("Choose a folder to preview ZIP files.");
+            projectValidationLabel.setText("Choose a folder to preview ZIP files.");
             statusRight.setText("");
             updateContextLabels();
             validateForm();
@@ -987,7 +1028,7 @@ public class MainController {
 
         File folder = new File(path);
         if (!folder.isDirectory()) {
-            submissionTableHint.setText("Folder is not available.");
+            projectValidationLabel.setText("Folder is not available.");
             statusRight.setText("");
             updateContextLabels();
             validateForm();
@@ -1002,7 +1043,7 @@ public class MainController {
             submissionsData.add(new SubmissionInfo(name, studentId, size));
         }
 
-        submissionTableHint.setText(submissionsData.isEmpty()
+        projectValidationLabel.setText(submissionsData.isEmpty()
                 ? "No ZIP files found in this folder."
                 : submissionsData.size() + " ZIP file(s) ready.");
         statusRight.setText(submissionsData.size() + " submission(s) found.");
@@ -1244,7 +1285,7 @@ public class MainController {
             configMessages.add("Expected output file was not found.");
         }
 
-        submissionFolderValidation.setText(showValidationMessages ? String.join(" ", folderMessages) : "");
+        projectValidationLabel.setText(showValidationMessages ? String.join(" ", folderMessages) : "");
         configValidationLabel.setText(showValidationMessages ? String.join(" ", configMessages) : "");
 
         submissionFolderField.pseudoClassStateChanged(ERROR, showValidationMessages && folderError);

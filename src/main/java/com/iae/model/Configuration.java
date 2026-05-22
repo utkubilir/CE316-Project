@@ -10,7 +10,6 @@ public class Configuration {
     private String compileCommand;
     private String runCommand;
     private List<String> runArgs = new ArrayList<>();
-    private String expectedOutputPath;
     private boolean compiled = true;
 
     public Configuration() {}
@@ -37,9 +36,6 @@ public class Configuration {
 
     public List<String> getRunArgs() { return runArgs; }
     public void setRunArgs(List<String> runArgs) { this.runArgs = runArgs != null ? runArgs : new ArrayList<>(); }
-
-    public String getExpectedOutputPath() { return expectedOutputPath; }
-    public void setExpectedOutputPath(String expectedOutputPath) { this.expectedOutputPath = expectedOutputPath; }
 
     public boolean isCompiled() { return compiled; }
     public void setCompiled(boolean compiled) { this.compiled = compiled; }

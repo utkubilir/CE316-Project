@@ -28,14 +28,13 @@ public class ConfigurationRepository {
         }
 
         String sql = "INSERT INTO saved_configurations " +
-                "(name, language, source_file_name, compile_command, run_command, expected_output_path, compiled) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?) " +
+                "(name, language, source_file_name, compile_command, run_command, compiled) " +
+                "VALUES (?, ?, ?, ?, ?, ?) " +
                 "ON CONFLICT(name) DO UPDATE SET " +
                 "language=excluded.language, " +
                 "source_file_name=excluded.source_file_name, " +
                 "compile_command=excluded.compile_command, " +
                 "run_command=excluded.run_command, " +
-                "expected_output_path=excluded.expected_output_path, " +
                 "compiled=excluded.compiled;";
 
         try (Connection conn = DatabaseHelper.getConnection();
@@ -45,8 +44,7 @@ public class ConfigurationRepository {
             pstmt.setString(3, cfg.getSourceFileName());
             pstmt.setString(4, cfg.getCompileCommand());
             pstmt.setString(5, cfg.getRunCommand());
-            pstmt.setString(6, cfg.getExpectedOutputPath());
-            pstmt.setInt(7, cfg.isCompiled() ? 1 : 0);
+            pstmt.setInt(6, cfg.isCompiled() ? 1 : 0);
             pstmt.executeUpdate();
         } catch (SQLException e) {
             System.err.println("Error saving configuration: " + e.getMessage());
@@ -117,7 +115,6 @@ public class ConfigurationRepository {
         cfg.setSourceFileName(rs.getString("source_file_name"));
         cfg.setCompileCommand(rs.getString("compile_command"));
         cfg.setRunCommand(rs.getString("run_command"));
-        cfg.setExpectedOutputPath(rs.getString("expected_output_path"));
         cfg.setCompiled(rs.getInt("compiled") == 1);
         return cfg;
     }

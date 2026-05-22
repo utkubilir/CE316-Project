@@ -120,9 +120,17 @@
 
                 <Label text="Submission Folder:" styleClass="side-label" labelFor="$submissionFolderField"/>
                 <TextField fx:id="submissionFolderField" promptText="/path/to/student_submissions" styleClass="side-input"/>
-                <Label fx:id="submissionFolderValidation" text="" styleClass="validation-text" wrapText="true"/>
                 <Button fx:id="browseSubmissionsBtn" text="_Browse..." maxWidth="Infinity" styleClass="side-btn-secondary"
                         accessibleText="Choose submissions folder" onAction="#onBrowseSubmissions"/>
+
+                <Label text="Expected Output File:" styleClass="side-label" labelFor="$expectedOutputField">
+                    <VBox.margin><Insets top="10"/></VBox.margin>
+                </Label>
+                <TextField fx:id="expectedOutputField" promptText="/path/to/expected_output.txt" styleClass="side-input"/>
+                <Button fx:id="browseExpectedOutputBtn" text="_Browse..." maxWidth="Infinity" styleClass="side-btn-secondary"
+                        accessibleText="Choose expected output file" onAction="#onBrowseExpectedOutput"/>
+
+                <Label fx:id="projectValidationLabel" text="" styleClass="validation-text" wrapText="true"/>
 
                 <Region VBox.vgrow="ALWAYS"/>
 
@@ -162,8 +170,6 @@
                                                         <RowConstraints/>
                                                         <RowConstraints/>
                                                         <RowConstraints/>
-                                                        <RowConstraints/>
-                                                        <RowConstraints/>
                                                     </rowConstraints>
 
                                                     <Label text="Configuration:" GridPane.rowIndex="0" GridPane.columnIndex="0"
@@ -193,14 +199,6 @@
                                                            labelFor="$runCmdField"/>
                                                     <TextField fx:id="runCmdField" promptText="./main arg1 arg2 arg3"
                                                                GridPane.rowIndex="4" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
-
-                                                    <Label text="Expected Output File:" GridPane.rowIndex="5" GridPane.columnIndex="0"
-                                                           labelFor="$expectedOutputField"/>
-                                                    <TextField fx:id="expectedOutputField" promptText="expected_output.txt"
-                                                               GridPane.rowIndex="5" GridPane.columnIndex="1"/>
-                                                    <Button fx:id="browseExpectedOutputBtn" text="Browse..." GridPane.rowIndex="5" GridPane.columnIndex="2"
-                                                            accessibleText="Choose expected output file"
-                                                            maxWidth="Infinity" onAction="#onBrowseExpectedOutput"/>
                                                 </GridPane>
 
                                                 <Label fx:id="configValidationLabel" text="" styleClass="validation-text" wrapText="true"/>
@@ -239,6 +237,35 @@
                                                 <TableColumn fx:id="colSubSize" text="Size" prefWidth="100"/>
                                             </columns>
                                         </TableView>
+                                    </children>
+                                </VBox>
+                            </content>
+                        </Tab>
+
+                        <Tab text="Expected Output">
+                            <content>
+                                <VBox spacing="10" styleClass="config-pane">
+                                    <padding><Insets top="14" right="18" bottom="14" left="18"/></padding>
+                                    <children>
+                                        <HBox alignment="CENTER_LEFT" spacing="10">
+                                            <children>
+                                                <Label text="Expected Output File Content:" styleClass="section-label"/>
+                                                <Region HBox.hgrow="ALWAYS"/>
+                                                <Label fx:id="expectedOutputHintLabel" text="No file loaded"
+                                                       styleClass="muted-text" maxWidth="350" textOverrun="ELLIPSIS"/>
+                                            </children>
+                                        </HBox>
+                                        <TextArea fx:id="expectedOutputTextArea" VBox.vgrow="ALWAYS"
+                                                  promptText="Expected output content will appear here..."
+                                                  styleClass="dialog-input" wrapText="false"/>
+                                        <HBox alignment="CENTER_RIGHT" spacing="10">
+                                            <children>
+                                                <Button text="Clear / Remove" styleClass="side-btn-secondary"
+                                                        onAction="#onClearExpectedOutput"/>
+                                                <Button text="Save Changes" styleClass="save-btn"
+                                                        onAction="#onSaveExpectedOutput"/>
+                                            </children>
+                                        </HBox>
                                     </children>
                                 </VBox>
                             </content>

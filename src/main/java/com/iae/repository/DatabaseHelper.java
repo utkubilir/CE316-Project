@@ -21,9 +21,17 @@ public class DatabaseHelper {
             String createProjectsTable = "CREATE TABLE IF NOT EXISTS projects (" +
                     "name TEXT PRIMARY KEY, " +
                     "submission_folder TEXT, " +
-                    "report_path TEXT" +
+                    "report_path TEXT, " +
+                    "expected_output_path TEXT" +
                     ");";
             stmt.execute(createProjectsTable);
+
+            // Attempt to add expected_output_path column to existing projects table (migration)
+            try {
+                stmt.execute("ALTER TABLE projects ADD COLUMN expected_output_path TEXT;");
+            } catch (SQLException ignore) {
+                // Ignore if the column already exists
+            }
 
             // Create configurations table
             String createConfigsTable = "CREATE TABLE IF NOT EXISTS configurations (" +
@@ -34,7 +42,6 @@ public class DatabaseHelper {
                     "source_file_name TEXT, " +
                     "compile_command TEXT, " +
                     "run_command TEXT, " +
-                    "expected_output_path TEXT, " +
                     "compiled INTEGER, " +
                     "FOREIGN KEY(project_name) REFERENCES projects(name) ON DELETE CASCADE" +
                     ");";
@@ -60,7 +67,6 @@ public class DatabaseHelper {
                     "source_file_name TEXT, " +
                     "compile_command TEXT, " +
                     "run_command TEXT, " +
-                    "expected_output_path TEXT, " +
                     "compiled INTEGER" +
                     ");";
             stmt.execute(createSavedConfigsTable);

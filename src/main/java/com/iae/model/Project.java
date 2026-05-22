@@ -9,6 +9,7 @@ public class Project {
     private String submissionFolder;
     private Configuration configuration = new Configuration();
     private List<StudentResult> results = new ArrayList<>();
+    private String expectedOutputPath;
     private String reportPath;
 
     public String getName() { return name; }
@@ -25,6 +26,9 @@ public class Project {
 
     public List<StudentResult> getResults() { return results; }
     public void setResults(List<StudentResult> results) { this.results = results != null ? results : new ArrayList<>(); }
+
+    public String getExpectedOutputPath() { return expectedOutputPath; }
+    public void setExpectedOutputPath(String expectedOutputPath) { this.expectedOutputPath = expectedOutputPath; }
 
     public String getReportPath() { return reportPath; }
     public void setReportPath(String reportPath) { this.reportPath = reportPath; }

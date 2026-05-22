@@ -28,15 +28,17 @@ public class ProjectRepository {
             conn.setAutoCommit(false);
 
             // 1. Insert or update the project
-            String upsertProject = "INSERT INTO projects (name, submission_folder, report_path) " +
-                    "VALUES (?, ?, ?) " +
+            String upsertProject = "INSERT INTO projects (name, submission_folder, report_path, expected_output_path) " +
+                    "VALUES (?, ?, ?, ?) " +
                     "ON CONFLICT(name) DO UPDATE SET " +
                     "submission_folder=excluded.submission_folder, " +
-                    "report_path=excluded.report_path;";
+                    "report_path=excluded.report_path, " +
+                    "expected_output_path=excluded.expected_output_path;";
             try (PreparedStatement pstmt = conn.prepareStatement(upsertProject)) {
                 pstmt.setString(1, project.getName());
                 pstmt.setString(2, project.getSubmissionFolder());
                 pstmt.setString(3, project.getReportPath());
+                pstmt.setString(4, project.getExpectedOutputPath());
                 pstmt.executeUpdate();
             }
 
@@ -57,8 +59,8 @@ public class ProjectRepository {
             if (project.getConfiguration() != null) {
                 Configuration cfg = project.getConfiguration();
                 String insertConfig = "INSERT INTO configurations (project_name, name, language, source_file_name, " +
-                        "compile_command, run_command, expected_output_path, compiled) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+                        "compile_command, run_command, compiled) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?);";
                 try (PreparedStatement pstmt = conn.prepareStatement(insertConfig)) {
                     pstmt.setString(1, project.getName());
                     pstmt.setString(2, cfg.getName());
@@ -66,8 +68,7 @@ public class ProjectRepository {
                     pstmt.setString(4, cfg.getSourceFileName());
                     pstmt.setString(5, cfg.getCompileCommand());
                     pstmt.setString(6, cfg.getRunCommand());
-                    pstmt.setString(7, cfg.getExpectedOutputPath());
-                    pstmt.setInt(8, cfg.isCompiled() ? 1 : 0);
+                    pstmt.setInt(7, cfg.isCompiled() ? 1 : 0);
                     pstmt.executeUpdate();
                 }
             }
@@ -107,6 +108,7 @@ public class ProjectRepository {
                         project.setName(rs.getString("name"));
                         project.setSubmissionFolder(rs.getString("submission_folder"));
                         project.setReportPath(rs.getString("report_path"));
+                        project.setExpectedOutputPath(rs.getString("expected_output_path"));
                     }
                 }
             }
@@ -124,7 +126,6 @@ public class ProjectRepository {
                             cfg.setSourceFileName(rs.getString("source_file_name"));
                             cfg.setCompileCommand(rs.getString("compile_command"));
                             cfg.setRunCommand(rs.getString("run_command"));
-                            cfg.setExpectedOutputPath(rs.getString("expected_output_path"));
                             cfg.setCompiled(rs.getInt("compiled") == 1);
                             project.setConfiguration(cfg);
                         }
