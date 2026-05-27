@@ -136,6 +136,7 @@ public class ProjectService {
                                 sourceFile.getParentFile(),
                                 configuration.getCompileCommand(),
                                 configuration.getRunCommand(),
+                                configuration.getRunArgs(),
                                 expectedOutput
                         );
 

@@ -5,8 +5,10 @@ import com.iae.model.StudentResult;
 import com.iae.model.SubmissionInfo;
 import com.iae.model.TestStatus;
 import com.iae.service.ConfigurationService;
+import com.iae.service.ExecutionEngine;
 import com.iae.service.FileManager;
 import com.iae.service.ProjectService;
+import com.iae.service.ReportService;
 
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -76,6 +78,7 @@ public class MainController {
     @FXML private TextField sourceFileField;
     @FXML private TextField compileCmdField;
     @FXML private TextField runCmdField;
+    @FXML private TextField runArgsField;
     @FXML private TextField expectedOutputField;
     @FXML private TextField submissionFolderField;
     @FXML private TextArea expectedOutputTextArea;
@@ -99,9 +102,11 @@ public class MainController {
     @FXML private MenuItem openProjectMenuItem;
     @FXML private MenuItem saveProjectMenuItem;
     @FXML private MenuItem deleteProjectMenuItem;
+    @FXML private MenuItem exportReportMenuItem;
     @FXML private MenuItem importConfigMenuItem;
     @FXML private MenuItem exportConfigMenuItem;
     @FXML private MenuItem manageConfigsMenuItem;
+    @FXML private Button exportReportBtn;
 
     @FXML private Label projectNameLabel;
     @FXML private Label configNameLabel;
@@ -136,6 +141,7 @@ public class MainController {
     private final ProjectService projectService = new ProjectService();
     private final ConfigurationService configurationService = new ConfigurationService();
     private final FileManager fileManager = new FileManager();
+    private final ReportService reportService = new ReportService();
     private Task<List<StudentResult>> evaluationTask;
     private Task<List<SubmissionInfo>> submissionScanTask;
     private Task<String> expectedOutputLoadTask;
@@ -308,6 +314,10 @@ public class MainController {
             markConfigurationEdited();
             validateForm();
         });
+        runArgsField.textProperty().addListener((obs, oldVal, newVal) -> {
+            markConfigurationEdited();
+            validateForm();
+        });
         expectedOutputField.textProperty().addListener((obs, oldVal, newVal) -> {
             markProjectDirty();
             validateForm();
@@ -333,6 +343,7 @@ public class MainController {
             updateResultsSummary();
             updateContextLabels();
             updateResultsPlaceholder();
+            updateActionStates();
         });
         filteredResultsData.addListener((javafx.collections.ListChangeListener<StudentResult>) change -> {
             updateResultsSummary();
@@ -369,6 +380,7 @@ public class MainController {
         sourceFileField.setAccessibleText("Source file name");
         compileCmdField.setAccessibleText("Compile command");
         runCmdField.setAccessibleText("Run command");
+        runArgsField.setAccessibleText("Run arguments passed to the student program");
         expectedOutputField.setAccessibleText("Expected output file path");
         expectedOutputTextArea.setAccessibleText("Expected output file contents");
         statusFilterCombo.setAccessibleText("Results status filter");
@@ -492,6 +504,7 @@ public class MainController {
             sourceFileField.setText(c.getSourceFileName() != null ? c.getSourceFileName() : "");
             compileCmdField.setText(c.getCompileCommand() != null ? c.getCompileCommand() : "");
             runCmdField.setText(c.getRunCommand() != null ? c.getRunCommand() : "");
+            runArgsField.setText(formatRunArgs(c.getRunArgs()));
         } finally {
             suppressFormListeners = false;
             suppressConfigurationListener = false;
@@ -506,8 +519,31 @@ public class MainController {
         cfg.setSourceFileName(cleanText(sourceFileField.getText()));
         cfg.setCompileCommand(cleanText(compileCmdField.getText()));
         cfg.setRunCommand(cleanText(runCmdField.getText()));
+        cfg.setRunArgs(ExecutionEngine.tokenize(cleanText(runArgsField.getText())));
         cfg.setCompiled(cfg.getCompileCommand() != null && !cfg.getCompileCommand().isBlank());
         return cfg;
+    }
+
+    private static String formatRunArgs(List<String> runArgs) {
+        if (runArgs == null || runArgs.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < runArgs.size(); i++) {
+            String arg = runArgs.get(i);
+            if (arg == null) {
+                continue;
+            }
+            if (i > 0) {
+                sb.append(' ');
+            }
+            if (arg.contains(" ") || arg.contains("\t") || arg.isEmpty()) {
+                sb.append('"').append(arg.replace("\"", "\\\"")).append('"');
+            } else {
+                sb.append(arg);
+            }
+        }
+        return sb.toString();
     }
 
     @FXML
@@ -766,12 +802,21 @@ public class MainController {
             runCommandField.setText(existing.getRunCommand() != null ? existing.getRunCommand() : "");
         }
 
+        TextField runArgsDialogField = new TextField();
+        runArgsDialogField.getStyleClass().add("dialog-input");
+        runArgsDialogField.setAccessibleText("Configuration run arguments");
+        runArgsDialogField.setPromptText("e.g. apple banana \"quoted arg\"");
+        if (editing) {
+            runArgsDialogField.setText(formatRunArgs(existing.getRunArgs()));
+        }
+
         for (TextField field : List.of(
                 nameField,
                 languageField,
                 sourceFileField,
                 compileCommandField,
-                runCommandField
+                runCommandField,
+                runArgsDialogField
         )) {
             field.setMaxWidth(Double.MAX_VALUE);
         }
@@ -800,6 +845,8 @@ public class MainController {
         compileCommandLabel.setLabelFor(compileCommandField);
         Label runCommandLabel = new Label("Run Command:");
         runCommandLabel.setLabelFor(runCommandField);
+        Label runArgsLabel = new Label("Run Args:");
+        runArgsLabel.setLabelFor(runArgsDialogField);
 
         grid.add(nameLabel, 0, 0);
         grid.add(nameField, 1, 0);
@@ -811,7 +858,9 @@ public class MainController {
         grid.add(compileCommandField, 1, 3);
         grid.add(runCommandLabel, 0, 4);
         grid.add(runCommandField, 1, 4);
-        grid.add(validationLabel, 0, 5);
+        grid.add(runArgsLabel, 0, 5);
+        grid.add(runArgsDialogField, 1, 5);
+        grid.add(validationLabel, 0, 6);
         GridPane.setColumnSpan(validationLabel, 2);
         dialog.getDialogPane().setContent(grid);
 
@@ -849,6 +898,9 @@ public class MainController {
                         ? compileCommandField.getText().trim()
                         : "");
                 cfg.setRunCommand(runCommandField.getText().trim());
+                cfg.setRunArgs(ExecutionEngine.tokenize(runArgsDialogField.getText() != null
+                        ? runArgsDialogField.getText().trim()
+                        : ""));
                 cfg.setCompiled(cfg.getCompileCommand() != null && !cfg.getCompileCommand().isBlank());
                 try {
                     configurationService.saveConfiguration(cfg);
@@ -886,9 +938,11 @@ public class MainController {
         ButtonType newBtnType = new ButtonType("New...", ButtonBar.ButtonData.LEFT);
         ButtonType loadBtnType = new ButtonType("Load / Edit", ButtonBar.ButtonData.OK_DONE);
         ButtonType deleteBtnType = new ButtonType("Delete", ButtonBar.ButtonData.OTHER);
+        ButtonType exportBtnType = new ButtonType("Export", ButtonBar.ButtonData.OTHER);
+        ButtonType exportAllBtnType = new ButtonType("Export All", ButtonBar.ButtonData.OTHER);
         ButtonType closeBtnType = new ButtonType("Close", ButtonBar.ButtonData.CANCEL_CLOSE);
         dialog.getDialogPane().getButtonTypes()
-                .addAll(newBtnType, loadBtnType, deleteBtnType, closeBtnType);
+                .addAll(newBtnType, loadBtnType, deleteBtnType, exportBtnType, exportAllBtnType, closeBtnType);
 
         Label listLabel = new Label("Select a configuration:");
         listLabel.setLabelFor(list);
@@ -914,12 +968,19 @@ public class MainController {
         });
         Button deleteBtn = (Button) dialog.getDialogPane().lookupButton(deleteBtnType);
         Button loadBtn = (Button) dialog.getDialogPane().lookupButton(loadBtnType);
+        Button exportBtn = (Button) dialog.getDialogPane().lookupButton(exportBtnType);
+        Button exportAllBtn = (Button) dialog.getDialogPane().lookupButton(exportAllBtnType);
         deleteBtn.setDisable(true);
         loadBtn.setDisable(true);
+        exportBtn.setDisable(true);
+        exportAllBtn.setDisable(list.getItems().isEmpty());
+        list.getItems().addListener((javafx.collections.ListChangeListener<String>) change ->
+                exportAllBtn.setDisable(list.getItems().isEmpty()));
         list.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             boolean empty = newVal == null;
             deleteBtn.setDisable(empty);
             loadBtn.setDisable(empty);
+            exportBtn.setDisable(empty);
         });
         deleteBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
             String selected = list.getSelectionModel().getSelectedItem();
@@ -943,6 +1004,58 @@ public class MainController {
                     statusLeft.setText("Configuration deleted: " + selected);
                 } catch (RuntimeException e) {
                     info("Delete Configuration", "Could not delete configuration: " + e.getMessage());
+                }
+            }
+            evt.consume();
+        });
+
+        exportBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
+            String selected = list.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                info("Export Configuration", "Please select a configuration first.");
+                evt.consume();
+                return;
+            }
+            Configuration cfg = configurationService.getConfiguration(selected);
+            if (cfg == null) {
+                info("Export Configuration", "Configuration not found.");
+                evt.consume();
+                return;
+            }
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Export Configuration");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON files", "*.json"));
+            chooser.setInitialFileName(safeFileName(cfg.getName()) + ".json");
+            File dest = chooser.showSaveDialog(dialog.getDialogPane().getScene().getWindow());
+            if (dest != null) {
+                try {
+                    configurationService.exportConfiguration(cfg, dest);
+                    statusLeft.setText("Configuration exported: " + cfg.getName());
+                } catch (Exception e) {
+                    info("Export Configuration", "Could not export configuration: " + e.getMessage());
+                }
+            }
+            evt.consume();
+        });
+
+        exportAllBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
+            List<Configuration> all = configurationService.listConfigurations();
+            if (all.isEmpty()) {
+                info("Export All Configurations", "No saved configurations to export.");
+                evt.consume();
+                return;
+            }
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Export All Configurations");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON files", "*.json"));
+            chooser.setInitialFileName("configurations.json");
+            File dest = chooser.showSaveDialog(dialog.getDialogPane().getScene().getWindow());
+            if (dest != null) {
+                try {
+                    configurationService.exportConfigurations(all, dest);
+                    statusLeft.setText("Exported " + all.size() + " configurations.");
+                } catch (Exception e) {
+                    info("Export All Configurations", "Could not export configurations: " + e.getMessage());
                 }
             }
             evt.consume();
@@ -991,16 +1104,28 @@ public class MainController {
         if (isRunning()) return;
 
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("Import Configuration");
+        chooser.setTitle("Import Configuration(s)");
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON files", "*.json"));
         File source = chooser.showOpenDialog(runTestsBtn.getScene().getWindow());
 
         if (source != null) {
             try {
-                Configuration imported = configurationService.importConfiguration(source);
-                configurationService.saveConfiguration(imported);
-                refreshConfigurationChoices(imported.getName());
-                statusLeft.setText("Configuration imported: " + imported.getName());
+                List<Configuration> imported = configurationService.importConfigurations(source);
+                if (imported.isEmpty()) {
+                    info("Import", "No configurations found in the selected file.");
+                    return;
+                }
+                for (Configuration cfg : imported) {
+                    if (cfg.getName() == null || cfg.getName().isBlank()) {
+                        continue;
+                    }
+                    configurationService.saveConfiguration(cfg);
+                }
+                Configuration last = imported.get(imported.size() - 1);
+                refreshConfigurationChoices(last.getName());
+                statusLeft.setText(imported.size() == 1
+                        ? "Configuration imported: " + last.getName()
+                        : "Imported " + imported.size() + " configurations.");
             } catch (Exception e) {
                 info("Error", "Could not import configuration: " + e.getMessage());
             }
@@ -1014,9 +1139,9 @@ public class MainController {
         Configuration cfg = readConfigurationFromForm(activeConfigurationName.isBlank() ? "Exported_Config" : activeConfigurationName);
 
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("Export Configuration");
+        chooser.setTitle("Export Current Form to JSON");
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON files", "*.json"));
-        chooser.setInitialFileName(cfg.getName().replaceAll("[^a-zA-Z0-9.-]", "_") + ".json");
+        chooser.setInitialFileName(safeFileName(cfg.getName()) + ".json");
         File dest = chooser.showSaveDialog(runTestsBtn.getScene().getWindow());
 
         if (dest != null) {
@@ -1029,39 +1154,96 @@ public class MainController {
         }
     }
 
+    private static String safeFileName(String name) {
+        String base = name == null || name.isBlank() ? "configuration" : name;
+        return base.replaceAll("[^a-zA-Z0-9.-]", "_");
+    }
+
+    @FXML
+    private void onExportReport() {
+        if (isRunning()) {
+            return;
+        }
+        if (resultsData.isEmpty()) {
+            info("Export Report", "Run an evaluation first; there are no results to export.");
+            return;
+        }
+
+        com.iae.model.Project project = projectService.getCurrentProject();
+        String projectName = project != null && project.getName() != null
+                ? project.getName()
+                : "Untitled";
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Export Report");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("HTML files", "*.html", "*.htm"));
+        chooser.setInitialFileName(safeFileName(projectName) + "_report.html");
+
+        if (project != null && project.getReportPath() != null && !project.getReportPath().isBlank()) {
+            File previous = new File(project.getReportPath());
+            File parent = previous.getParentFile();
+            if (parent != null && parent.isDirectory()) {
+                chooser.setInitialDirectory(parent);
+            }
+        }
+
+        File dest = chooser.showSaveDialog(runTestsBtn.getScene().getWindow());
+        if (dest == null) {
+            return;
+        }
+
+        com.iae.model.Project snapshot = project != null ? project : new com.iae.model.Project();
+        if (project == null) {
+            snapshot.setName(projectName);
+        }
+        snapshot.setSubmissionFolder(cleanText(submissionFolderField.getText()));
+        snapshot.setExpectedOutputPath(cleanText(expectedOutputField.getText()));
+        snapshot.setConfiguration(readConfigurationFromForm(configurationNameForSave(projectName + " Config")));
+        snapshot.setResults(new ArrayList<>(resultsData));
+
+        try {
+            reportService.exportReport(snapshot, loadedExpectedOutputContent, dest);
+            if (project != null) {
+                project.setReportPath(dest.getAbsolutePath());
+                markProjectDirty();
+            }
+            statusLeft.setText("Report exported: " + dest.getAbsolutePath());
+        } catch (Exception e) {
+            info("Export Report", "Could not export report: " + e.getMessage());
+        }
+    }
+
     @FXML
     private void onShowManual() {
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("CE316 IAE User Manual");
         dialog.setHeaderText("Integrated Assignment Environment Manual");
         styleDialog(dialog);
+        dialog.setResizable(true);
 
-        TextArea textArea = new TextArea(
-                "Welcome to the CE316 Integrated Assignment Environment!\n\n" +
-                "1. Projects:\n" +
-                "   - Use 'File -> New Project' to start a new evaluation session.\n" +
-                "   - 'Open Project' loads a previously saved session including results.\n\n" +
-                "2. Configurations:\n" +
-                "   - Select an existing configuration from the dropdown or manage them in 'Configuration -> Manage Configurations...'\n" +
-                "   - You can also 'Import' and 'Export' configurations from JSON files under the 'File' menu.\n" +
-                "   - A configuration requires a source file name, compile command (optional for interpreted languages), and run command.\n\n" +
-                "3. Student Submissions:\n" +
-                "   - Click 'Browse...' to select the folder containing student ZIP files.\n" +
-                "   - The ZIP file name (without extension) is treated as the student ID.\n\n" +
-                "4. Evaluation:\n" +
-                "   - Select an Expected Output file (.txt or .out).\n" +
-                "   - Click 'Run Tests' to evaluate all submissions. The tool will automatically extract each ZIP, compile (if needed), and run the code.\n" +
-                "   - Output will be compared against the expected output.\n\n" +
-                "5. Results:\n" +
-                "   - Use the filter dropdown to view 'Passed', 'Failed', etc.\n" +
-                "   - Double-click a row or click 'Details' to view the full compiler/runtime output for a student."
-        );
-        textArea.setEditable(false);
-        textArea.setWrapText(true);
-        textArea.setPrefWidth(600);
-        textArea.setPrefHeight(400);
+        java.net.URL manualUrl = getClass().getResource("/manual/manual.html");
+        if (manualUrl != null) {
+            javafx.scene.web.WebView webView = new javafx.scene.web.WebView();
+            webView.getEngine().load(manualUrl.toExternalForm());
+            webView.setPrefSize(900, 650);
+            dialog.getDialogPane().setContent(webView);
+        } else {
+            TextArea fallback = new TextArea(
+                    "Manual resource could not be loaded.\n" +
+                    "Please report this issue.\n\n" +
+                    "Quick reference:\n" +
+                    "1. File → New Project, pick or create a configuration.\n" +
+                    "2. Choose a submissions folder containing student ZIPs.\n" +
+                    "3. Pick an expected output file.\n" +
+                    "4. Click Run Tests.\n" +
+                    "5. File → Export Report writes a shareable HTML report.");
+            fallback.setEditable(false);
+            fallback.setWrapText(true);
+            fallback.setPrefWidth(600);
+            fallback.setPrefHeight(400);
+            dialog.getDialogPane().setContent(fallback);
+        }
 
-        dialog.getDialogPane().setContent(textArea);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
         dialog.showAndWait();
     }
@@ -1746,6 +1928,7 @@ public class MainController {
                 sourceFileField.setText("");
                 compileCmdField.setText("");
                 runCmdField.setText("");
+                runArgsField.setText("");
             }
         } finally {
             suppressConfigurationListener = false;
@@ -1784,6 +1967,7 @@ public class MainController {
         sourceFileField.setText("");
         compileCmdField.setText("");
         runCmdField.setText("");
+        runArgsField.setText("");
         suppressFormListeners = false;
         resultsData.clear();
         clearSubmissionPreview("Choose a folder, then scan to preview ZIP files.");
@@ -1998,7 +2182,12 @@ public class MainController {
         sourceFileField.setDisable(running);
         compileCmdField.setDisable(running);
         runCmdField.setDisable(running);
+        runArgsField.setDisable(running);
         submissionFolderField.setDisable(running);
+
+        boolean hasResults = !resultsData.isEmpty();
+        exportReportMenuItem.setDisable(running || !hasResults);
+        exportReportBtn.setDisable(running || !hasResults);
 
         newProjectMenuItem.setDisable(running);
         openProjectMenuItem.setDisable(running || !hasSavedProjects);

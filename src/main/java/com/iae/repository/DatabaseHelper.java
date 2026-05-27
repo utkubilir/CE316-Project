@@ -8,7 +8,7 @@ import java.sql.Statement;
 public class DatabaseHelper {
 
     private static final String DEFAULT_URL = "jdbc:sqlite:iae_projects.db";
-    static final String DATABASE_URL_PROPERTY = "iae.database.url";
+    public static final String DATABASE_URL_PROPERTY = "iae.database.url";
 
     public static Connection getConnection() throws SQLException {
         String url = System.getProperty(DATABASE_URL_PROPERTY, DEFAULT_URL);
@@ -44,10 +44,17 @@ public class DatabaseHelper {
                     "source_file_name TEXT, " +
                     "compile_command TEXT, " +
                     "run_command TEXT, " +
+                    "run_args TEXT, " +
                     "compiled INTEGER, " +
                     "FOREIGN KEY(project_name) REFERENCES projects(name) ON DELETE CASCADE" +
                     ");";
             stmt.execute(createConfigsTable);
+
+            try {
+                stmt.execute("ALTER TABLE configurations ADD COLUMN run_args TEXT;");
+            } catch (SQLException ignore) {
+                // Column already exists.
+            }
 
             // Create results table
             String createResultsTable = "CREATE TABLE IF NOT EXISTS results (" +
@@ -69,9 +76,16 @@ public class DatabaseHelper {
                     "source_file_name TEXT, " +
                     "compile_command TEXT, " +
                     "run_command TEXT, " +
+                    "run_args TEXT, " +
                     "compiled INTEGER" +
                     ");";
             stmt.execute(createSavedConfigsTable);
+
+            try {
+                stmt.execute("ALTER TABLE saved_configurations ADD COLUMN run_args TEXT;");
+            } catch (SQLException ignore) {
+                // Column already exists.
+            }
 
         } catch (SQLException e) {
             throw new PersistenceException("Could not initialize the local database.", e);

@@ -28,13 +28,14 @@ public class ConfigurationRepository {
         }
 
         String sql = "INSERT INTO saved_configurations " +
-                "(name, language, source_file_name, compile_command, run_command, compiled) " +
-                "VALUES (?, ?, ?, ?, ?, ?) " +
+                "(name, language, source_file_name, compile_command, run_command, run_args, compiled) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?) " +
                 "ON CONFLICT(name) DO UPDATE SET " +
                 "language=excluded.language, " +
                 "source_file_name=excluded.source_file_name, " +
                 "compile_command=excluded.compile_command, " +
                 "run_command=excluded.run_command, " +
+                "run_args=excluded.run_args, " +
                 "compiled=excluded.compiled;";
 
         try (Connection conn = DatabaseHelper.getConnection();
@@ -44,7 +45,8 @@ public class ConfigurationRepository {
             pstmt.setString(3, cfg.getSourceFileName());
             pstmt.setString(4, cfg.getCompileCommand());
             pstmt.setString(5, cfg.getRunCommand());
-            pstmt.setInt(6, cfg.isCompiled() ? 1 : 0);
+            pstmt.setString(6, RunArgsCodec.encode(cfg.getRunArgs()));
+            pstmt.setInt(7, cfg.isCompiled() ? 1 : 0);
             pstmt.executeUpdate();
         } catch (SQLException e) {
             throw new PersistenceException("Could not save configuration.", e);
@@ -115,6 +117,7 @@ public class ConfigurationRepository {
         cfg.setSourceFileName(rs.getString("source_file_name"));
         cfg.setCompileCommand(rs.getString("compile_command"));
         cfg.setRunCommand(rs.getString("run_command"));
+        cfg.setRunArgs(RunArgsCodec.decode(rs.getString("run_args")));
         cfg.setCompiled(rs.getInt("compiled") == 1);
         return cfg;
     }

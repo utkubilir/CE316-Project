@@ -54,6 +54,10 @@ public class ExecutionEngine {
     }
 
     public String runProgram(File workingDirectory, String runCommand) {
+        return runProgram(workingDirectory, runCommand, List.of());
+    }
+
+    public String runProgram(File workingDirectory, String runCommand, List<String> runArgs) {
 
         if (runCommand == null || runCommand.isBlank()) {
             return "RUNTIME_ERROR\nRun command is empty.";
@@ -61,6 +65,13 @@ public class ExecutionEngine {
 
         try {
             List<String> tokens = resolveTokens(workingDirectory, tokenize(runCommand));
+            if (runArgs != null) {
+                for (String arg : runArgs) {
+                    if (arg != null) {
+                        tokens.add(arg);
+                    }
+                }
+            }
 
             ProcessBuilder pb = new ProcessBuilder(tokens);
             pb.directory(workingDirectory);
@@ -107,6 +118,17 @@ public class ExecutionEngine {
             String runCommand,
             String expectedOutput
     ) {
+        return evaluateSubmission(studentId, workingDirectory, compileCommand, runCommand, List.of(), expectedOutput);
+    }
+
+    public StudentResult evaluateSubmission(
+            String studentId,
+            File workingDirectory,
+            String compileCommand,
+            String runCommand,
+            List<String> runArgs,
+            String expectedOutput
+    ) {
 
         String compileResult = compile(workingDirectory, compileCommand);
 
@@ -114,7 +136,7 @@ public class ExecutionEngine {
             return new StudentResult(studentId, TestStatus.COMPILATION_ERROR, compileResult);
         }
 
-        String actualOutput = runProgram(workingDirectory, runCommand);
+        String actualOutput = runProgram(workingDirectory, runCommand, runArgs);
 
         if (actualOutput.equals("TIMEOUT")) {
             return new StudentResult(studentId, TestStatus.TIMEOUT, "Program execution timed out.");
@@ -135,7 +157,7 @@ public class ExecutionEngine {
     // ----- helpers ---------------------------------------------------------
 
     /** Splits a command string respecting double-quoted arguments. */
-    static List<String> tokenize(String cmd) {
+    public static List<String> tokenize(String cmd) {
         List<String> tokens = new ArrayList<>();
         if (cmd == null) return tokens;
         Matcher m = TOKEN_PATTERN.matcher(cmd);

@@ -43,8 +43,10 @@
                                 <MenuItem fx:id="saveProjectMenuItem" text="Save Project" onAction="#onSaveProject"/>
                                 <MenuItem fx:id="deleteProjectMenuItem" text="Delete Project..." onAction="#onDeleteProject"/>
                                 <SeparatorMenuItem/>
-                                <MenuItem fx:id="importConfigMenuItem" text="Import Configuration" onAction="#onImportConfig"/>
-                                <MenuItem fx:id="exportConfigMenuItem" text="Export Configuration" onAction="#onExportConfig"/>
+                                <MenuItem fx:id="exportReportMenuItem" text="Export Report..." onAction="#onExportReport"/>
+                                <SeparatorMenuItem/>
+                                <MenuItem fx:id="importConfigMenuItem" text="Import Configuration(s)..." onAction="#onImportConfig"/>
+                                <MenuItem fx:id="exportConfigMenuItem" text="Export Current Form to JSON..." onAction="#onExportConfig"/>
                                 <SeparatorMenuItem/>
                                 <MenuItem text="Exit" onAction="#onExit"/>
                             </items>
@@ -203,6 +205,7 @@
                                                         <RowConstraints/>
                                                         <RowConstraints/>
                                                         <RowConstraints/>
+                                                        <RowConstraints/>
                                                     </rowConstraints>
 
                                                     <Label text="Configuration:" GridPane.rowIndex="0" GridPane.columnIndex="0"
@@ -230,8 +233,13 @@
 
                                                     <Label text="Run Command:" GridPane.rowIndex="4" GridPane.columnIndex="0"
                                                            labelFor="$runCmdField"/>
-                                                    <TextField fx:id="runCmdField" promptText="./main arg1 arg2 arg3"
+                                                    <TextField fx:id="runCmdField" promptText="./main"
                                                                GridPane.rowIndex="4" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+                                                    <Label text="Run Args:" GridPane.rowIndex="5" GridPane.columnIndex="0"
+                                                           labelFor="$runArgsField"/>
+                                                    <TextField fx:id="runArgsField" promptText="arg1 arg2 &quot;quoted arg&quot;"
+                                                               GridPane.rowIndex="5" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
                                                 </GridPane>
 
                                                 <Label fx:id="configValidationLabel" text="" styleClass="validation-text" wrapText="true"/>
@@ -321,6 +329,9 @@
                                 <Label fx:id="resultsSummaryLabel" text="No results yet" styleClass="muted-text"
                                        maxWidth="360" textOverrun="ELLIPSIS"/>
                                 <Region HBox.hgrow="ALWAYS"/>
+                                <Button fx:id="exportReportBtn" text="Export Report..." styleClass="side-btn-secondary"
+                                        accessibleText="Export results as an HTML report"
+                                        onAction="#onExportReport"/>
                                 <Label text="Filter:" styleClass="muted-text" labelFor="$statusFilterCombo"/>
                                 <ComboBox fx:id="statusFilterCombo" prefWidth="180"/>
                             </children>

@@ -59,8 +59,8 @@ public class ProjectRepository {
             if (project.getConfiguration() != null) {
                 Configuration cfg = project.getConfiguration();
                 String insertConfig = "INSERT INTO configurations (project_name, name, language, source_file_name, " +
-                        "compile_command, run_command, compiled) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?);";
+                        "compile_command, run_command, run_args, compiled) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
                 try (PreparedStatement pstmt = conn.prepareStatement(insertConfig)) {
                     pstmt.setString(1, project.getName());
                     pstmt.setString(2, cfg.getName());
@@ -68,7 +68,8 @@ public class ProjectRepository {
                     pstmt.setString(4, cfg.getSourceFileName());
                     pstmt.setString(5, cfg.getCompileCommand());
                     pstmt.setString(6, cfg.getRunCommand());
-                    pstmt.setInt(7, cfg.isCompiled() ? 1 : 0);
+                    pstmt.setString(7, RunArgsCodec.encode(cfg.getRunArgs()));
+                    pstmt.setInt(8, cfg.isCompiled() ? 1 : 0);
                     pstmt.executeUpdate();
                 }
             }
@@ -126,6 +127,7 @@ public class ProjectRepository {
                             cfg.setSourceFileName(rs.getString("source_file_name"));
                             cfg.setCompileCommand(rs.getString("compile_command"));
                             cfg.setRunCommand(rs.getString("run_command"));
+                            cfg.setRunArgs(RunArgsCodec.decode(rs.getString("run_args")));
                             cfg.setCompiled(rs.getInt("compiled") == 1);
                             project.setConfiguration(cfg);
                         }

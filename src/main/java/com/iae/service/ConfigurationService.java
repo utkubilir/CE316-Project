@@ -139,10 +139,42 @@ public class ConfigurationService {
         }
     }
 
+    public void exportConfigurations(List<Configuration> configs, java.io.File dest) throws java.io.IOException {
+        com.google.gson.Gson gson = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
+        try (java.io.FileWriter writer = new java.io.FileWriter(dest)) {
+            gson.toJson(configs != null ? configs : List.of(), writer);
+        }
+    }
+
     public Configuration importConfiguration(java.io.File source) throws java.io.IOException {
         com.google.gson.Gson gson = new com.google.gson.Gson();
         try (java.io.FileReader reader = new java.io.FileReader(source)) {
             return gson.fromJson(reader, Configuration.class);
+        }
+    }
+
+    public List<Configuration> importConfigurations(java.io.File source) throws java.io.IOException {
+        com.google.gson.Gson gson = new com.google.gson.Gson();
+        try (java.io.FileReader reader = new java.io.FileReader(source)) {
+            com.google.gson.JsonElement root = com.google.gson.JsonParser.parseReader(reader);
+            List<Configuration> out = new java.util.ArrayList<>();
+            if (root == null || root.isJsonNull()) {
+                return out;
+            }
+            if (root.isJsonArray()) {
+                for (com.google.gson.JsonElement element : root.getAsJsonArray()) {
+                    Configuration cfg = gson.fromJson(element, Configuration.class);
+                    if (cfg != null) {
+                        out.add(cfg);
+                    }
+                }
+            } else if (root.isJsonObject()) {
+                Configuration cfg = gson.fromJson(root, Configuration.class);
+                if (cfg != null) {
+                    out.add(cfg);
+                }
+            }
+            return out;
         }
     }
 }
