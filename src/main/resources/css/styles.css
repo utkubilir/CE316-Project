@@ -373,3 +373,58 @@
     -fx-border-color: #c0332f;
     -fx-background-color: #fff8f7;
 }
+
+/* ---- Splash screen ---- */
+.splash-root {
+    -fx-background-color: transparent;
+    -fx-padding: 20;
+}
+.splash-card {
+    -fx-background-color: linear-gradient(to bottom right, #ffffff 0%, #f5f7fa 100%);
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-border-color: #e3e8ef;
+    -fx-border-width: 1;
+    -fx-padding: 36 36 28 36;
+    -fx-effect: dropshadow(gaussian, rgba(16, 24, 40, 0.22), 28, 0, 0, 8);
+}
+.splash-title {
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 34px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1d4ed8;
+    -fx-padding: 0 0 2 0;
+}
+.splash-subtitle {
+    -fx-font-size: 14px;
+    -fx-text-fill: #4a5260;
+}
+.splash-divider {
+    -fx-background-color: linear-gradient(to right, #2563eb, #60a5fa);
+    -fx-background-radius: 2;
+}
+.splash-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #687386;
+}
+.splash-version {
+    -fx-font-size: 11px;
+    -fx-text-fill: #99a3b3;
+    -fx-padding: 4 0 0 0;
+}
+.splash-progress {
+    -fx-pref-height: 6;
+    -fx-min-height: 6;
+    -fx-max-height: 6;
+}
+.splash-progress > .track {
+    -fx-background-color: #e3e8ef;
+    -fx-background-radius: 4;
+    -fx-background-insets: 0;
+}
+.splash-progress > .bar {
+    -fx-background-color: linear-gradient(to right, #2563eb, #60a5fa);
+    -fx-background-radius: 4;
+    -fx-background-insets: 0;
+    -fx-padding: 3;
+}
