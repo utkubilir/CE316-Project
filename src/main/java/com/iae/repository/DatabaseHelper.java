@@ -7,10 +7,12 @@ import java.sql.Statement;
 
 public class DatabaseHelper {
 
-    private static final String URL = "jdbc:sqlite:iae_projects.db";
+    private static final String DEFAULT_URL = "jdbc:sqlite:iae_projects.db";
+    static final String DATABASE_URL_PROPERTY = "iae.database.url";
 
     public static Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(URL);
+        String url = System.getProperty(DATABASE_URL_PROPERTY, DEFAULT_URL);
+        return DriverManager.getConnection(url);
     }
 
     public static void initializeDatabase() {
@@ -72,7 +74,7 @@ public class DatabaseHelper {
             stmt.execute(createSavedConfigsTable);
 
         } catch (SQLException e) {
-            System.err.println("Database initialization error: " + e.getMessage());
+            throw new PersistenceException("Could not initialize the local database.", e);
         }
     }
 }

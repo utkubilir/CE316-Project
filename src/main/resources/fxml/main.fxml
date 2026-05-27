@@ -38,20 +38,20 @@
                     <menus>
                         <Menu text="File">
                             <items>
-                                <MenuItem text="New Project" onAction="#onNewProject"/>
-                                <MenuItem text="Open Project..." onAction="#onOpenProject"/>
-                                <MenuItem text="Save Project" onAction="#onSaveProject"/>
-                                <MenuItem text="Delete Project..." onAction="#onDeleteProject"/>
+                                <MenuItem fx:id="newProjectMenuItem" text="New Project" onAction="#onNewProject"/>
+                                <MenuItem fx:id="openProjectMenuItem" text="Open Project..." onAction="#onOpenProject"/>
+                                <MenuItem fx:id="saveProjectMenuItem" text="Save Project" onAction="#onSaveProject"/>
+                                <MenuItem fx:id="deleteProjectMenuItem" text="Delete Project..." onAction="#onDeleteProject"/>
                                 <SeparatorMenuItem/>
-                                <MenuItem text="Import Configuration" onAction="#onImportConfig"/>
-                                <MenuItem text="Export Configuration" onAction="#onExportConfig"/>
+                                <MenuItem fx:id="importConfigMenuItem" text="Import Configuration" onAction="#onImportConfig"/>
+                                <MenuItem fx:id="exportConfigMenuItem" text="Export Configuration" onAction="#onExportConfig"/>
                                 <SeparatorMenuItem/>
                                 <MenuItem text="Exit" onAction="#onExit"/>
                             </items>
                         </Menu>
                         <Menu text="Configuration">
                             <items>
-                                <MenuItem text="Manage Configurations..." onAction="#onManageConfigs"/>
+                                <MenuItem fx:id="manageConfigsMenuItem" text="Manage Configurations..." onAction="#onManageConfigs"/>
                             </items>
                         </Menu>
                         <Menu text="Help">
@@ -104,45 +104,78 @@
     </top>
 
     <left>
-        <VBox styleClass="sidebar" spacing="10">
-            <padding><Insets top="16" right="14" bottom="16" left="14"/></padding>
-            <children>
-                <Button fx:id="newProjectBtn" text="_New Project" maxWidth="Infinity" styleClass="side-btn"
-                        accessibleText="Create a new project" onAction="#onNewProject"/>
-                <Button fx:id="openProjectBtn" text="_Open Project" maxWidth="Infinity" styleClass="side-btn"
-                        accessibleText="Open a saved project" onAction="#onOpenProject"/>
-                <Button fx:id="saveProjectBtn" text="_Save Project" maxWidth="Infinity" styleClass="side-btn"
-                        accessibleText="Save the active project" onAction="#onSaveProject"/>
-                <Button fx:id="deleteProjectBtn" text="_Delete Project" maxWidth="Infinity" styleClass="danger-btn"
-                        accessibleText="Delete a saved project" onAction="#onDeleteProject"/>
+        <BorderPane styleClass="sidebar">
+            <center>
+                <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                            styleClass="sidebar-scroll">
+                    <content>
+                        <VBox spacing="8" styleClass="sidebar-body">
+                            <padding><Insets top="12" right="14" bottom="10" left="14"/></padding>
+                            <children>
+                                <GridPane hgap="8" vgap="8">
+                                    <columnConstraints>
+                                        <ColumnConstraints percentWidth="50" hgrow="ALWAYS"/>
+                                        <ColumnConstraints percentWidth="50" hgrow="ALWAYS"/>
+                                    </columnConstraints>
+                                    <children>
+                                        <Button fx:id="newProjectBtn" text="_New" maxWidth="Infinity" styleClass="side-btn"
+                                                GridPane.columnIndex="0" GridPane.rowIndex="0"
+                                                accessibleText="Create a new project" onAction="#onNewProject"/>
+                                        <Button fx:id="openProjectBtn" text="_Open" maxWidth="Infinity" styleClass="side-btn"
+                                                GridPane.columnIndex="1" GridPane.rowIndex="0"
+                                                accessibleText="Open a saved project" onAction="#onOpenProject"/>
+                                        <Button fx:id="saveProjectBtn" text="_Save" maxWidth="Infinity" styleClass="side-btn"
+                                                GridPane.columnIndex="0" GridPane.rowIndex="1"
+                                                accessibleText="Save the active project" onAction="#onSaveProject"/>
+                                        <Button fx:id="deleteProjectBtn" text="_Delete" maxWidth="Infinity" styleClass="danger-btn"
+                                                GridPane.columnIndex="1" GridPane.rowIndex="1"
+                                                accessibleText="Delete a saved project" onAction="#onDeleteProject"/>
+                                    </children>
+                                </GridPane>
 
-                <Separator/>
+                                <Separator/>
 
-                <Label text="Submission Folder:" styleClass="side-label" labelFor="$submissionFolderField"/>
-                <TextField fx:id="submissionFolderField" promptText="/path/to/student_submissions" styleClass="side-input"/>
-                <Button fx:id="browseSubmissionsBtn" text="_Browse..." maxWidth="Infinity" styleClass="side-btn-secondary"
-                        accessibleText="Choose submissions folder" onAction="#onBrowseSubmissions"/>
+                                <Label text="Submission Folder:" styleClass="side-label" labelFor="$submissionFolderField"/>
+                                <TextField fx:id="submissionFolderField" promptText="/path/to/student_submissions" styleClass="side-input"/>
+                                <HBox spacing="8">
+                                    <children>
+                                        <Button fx:id="browseSubmissionsBtn" text="_Browse..." maxWidth="Infinity"
+                                                HBox.hgrow="ALWAYS" styleClass="side-btn-secondary"
+                                                accessibleText="Choose submissions folder" onAction="#onBrowseSubmissions"/>
+                                        <Button fx:id="scanSubmissionsBtn" text="_Scan" maxWidth="Infinity"
+                                                HBox.hgrow="ALWAYS" styleClass="side-btn-secondary"
+                                                accessibleText="Scan typed submissions folder" onAction="#onScanSubmissions"/>
+                                    </children>
+                                </HBox>
 
-                <Label text="Expected Output File:" styleClass="side-label" labelFor="$expectedOutputField">
-                    <VBox.margin><Insets top="10"/></VBox.margin>
-                </Label>
-                <TextField fx:id="expectedOutputField" promptText="/path/to/expected_output.txt" styleClass="side-input"/>
-                <Button fx:id="browseExpectedOutputBtn" text="_Browse..." maxWidth="Infinity" styleClass="side-btn-secondary"
-                        accessibleText="Choose expected output file" onAction="#onBrowseExpectedOutput"/>
+                                <Label text="Expected Output File:" styleClass="side-label" labelFor="$expectedOutputField"/>
+                                <TextField fx:id="expectedOutputField" promptText="/path/to/expected_output.txt" styleClass="side-input"/>
+                                <Button fx:id="browseExpectedOutputBtn" text="_Browse..." maxWidth="Infinity" styleClass="side-btn-secondary"
+                                        accessibleText="Choose expected output file" onAction="#onBrowseExpectedOutput"/>
 
-                <Label fx:id="projectValidationLabel" text="" styleClass="validation-text" wrapText="true"/>
-
-                <Region VBox.vgrow="ALWAYS"/>
-
-                <Button fx:id="runTestsBtn" text="_Run Tests" maxWidth="Infinity" styleClass="run-btn"
-                        accessibleText="Run tests for discovered submissions" onAction="#onRunTests"/>
-                <ProgressBar fx:id="runProgress" progress="0" maxWidth="Infinity" visible="false" managed="false"/>
-                <Label fx:id="currentRunLabel" text="" styleClass="side-help" wrapText="true"/>
-                <Button fx:id="cancelRunBtn" text="_Cancel Run" maxWidth="Infinity" styleClass="side-btn-secondary"
-                        accessibleText="Cancel running evaluation" onAction="#onCancelRun"
-                        visible="false" managed="false"/>
-            </children>
-        </VBox>
+                                <Label fx:id="projectValidationLabel" text="" styleClass="validation-text" wrapText="true"/>
+                            </children>
+                        </VBox>
+                    </content>
+                </ScrollPane>
+            </center>
+            <bottom>
+                <VBox spacing="8" styleClass="sidebar-actions">
+                    <padding><Insets top="10" right="14" bottom="14" left="14"/></padding>
+                    <children>
+                        <Label fx:id="readinessLabel" text="Create or open a project first." styleClass="side-help"
+                               wrapText="true"/>
+                        <Button fx:id="runTestsBtn" text="_Run Tests" maxWidth="Infinity" styleClass="run-btn"
+                                accessibleText="Run tests for discovered submissions" onAction="#onRunTests"/>
+                        <ProgressBar fx:id="runProgress" progress="0" maxWidth="Infinity" visible="false" managed="false"/>
+                        <Label fx:id="currentRunLabel" text="" styleClass="side-help" wrapText="true"/>
+                        <Button fx:id="cancelRunBtn" text="_Cancel Run" maxWidth="Infinity" styleClass="side-btn-secondary"
+                                accessibleText="Cancel running evaluation" onAction="#onCancelRun"
+                                visible="false" managed="false"/>
+                    </children>
+                </VBox>
+            </bottom>
+        </BorderPane>
     </left>
 
     <center>
@@ -176,7 +209,7 @@
                                                            labelFor="$configCombo"/>
                                                     <ComboBox fx:id="configCombo" GridPane.rowIndex="0" GridPane.columnIndex="1"
                                                               maxWidth="320"/>
-                                                    <Button text="Manage..." GridPane.rowIndex="0" GridPane.columnIndex="2"
+                                                    <Button fx:id="manageConfigBtn" text="Manage..." GridPane.rowIndex="0" GridPane.columnIndex="2"
                                                             maxWidth="Infinity" onAction="#onManageConfigs"/>
 
                                                     <Label text="Language:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
@@ -257,12 +290,18 @@
                                         </HBox>
                                         <TextArea fx:id="expectedOutputTextArea" VBox.vgrow="ALWAYS"
                                                   promptText="Expected output content will appear here..."
+                                                  accessibleText="Expected output file contents"
                                                   styleClass="dialog-input" wrapText="false"/>
                                         <HBox alignment="CENTER_RIGHT" spacing="10">
                                             <children>
-                                                <Button text="Clear / Remove" styleClass="side-btn-secondary"
+                                                <Button fx:id="loadExpectedOutputBtn" text="_Load File" styleClass="side-btn-secondary"
+                                                        accessibleText="Load expected output file contents"
+                                                        onAction="#onLoadExpectedOutput"/>
+                                                <Button fx:id="detachExpectedOutputBtn" text="_Detach File" styleClass="side-btn-secondary"
+                                                        accessibleText="Detach expected output file from the project"
                                                         onAction="#onClearExpectedOutput"/>
-                                                <Button text="Save Changes" styleClass="save-btn"
+                                                <Button fx:id="saveExpectedOutputBtn" text="_Save Changes" styleClass="save-btn"
+                                                        accessibleText="Save edited expected output contents"
                                                         onAction="#onSaveExpectedOutput"/>
                                             </children>
                                         </HBox>
@@ -282,7 +321,7 @@
                                 <Label fx:id="resultsSummaryLabel" text="No results yet" styleClass="muted-text"
                                        maxWidth="360" textOverrun="ELLIPSIS"/>
                                 <Region HBox.hgrow="ALWAYS"/>
-                                <Label text="Filter:" styleClass="muted-text"/>
+                                <Label text="Filter:" styleClass="muted-text" labelFor="$statusFilterCombo"/>
                                 <ComboBox fx:id="statusFilterCombo" prefWidth="180"/>
                             </children>
                         </HBox>

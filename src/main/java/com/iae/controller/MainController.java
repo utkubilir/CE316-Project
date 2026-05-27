@@ -25,6 +25,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
@@ -49,6 +50,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public class MainController {
@@ -84,9 +86,22 @@ public class MainController {
     @FXML private Button saveProjectBtn;
     @FXML private Button deleteProjectBtn;
     @FXML private Button browseSubmissionsBtn;
+    @FXML private Button scanSubmissionsBtn;
     @FXML private Button browseExpectedOutputBtn;
     @FXML private Button saveConfigBtn;
+    @FXML private Button manageConfigBtn;
+    @FXML private Button loadExpectedOutputBtn;
+    @FXML private Button detachExpectedOutputBtn;
+    @FXML private Button saveExpectedOutputBtn;
     @FXML private ProgressBar runProgress;
+
+    @FXML private MenuItem newProjectMenuItem;
+    @FXML private MenuItem openProjectMenuItem;
+    @FXML private MenuItem saveProjectMenuItem;
+    @FXML private MenuItem deleteProjectMenuItem;
+    @FXML private MenuItem importConfigMenuItem;
+    @FXML private MenuItem exportConfigMenuItem;
+    @FXML private MenuItem manageConfigsMenuItem;
 
     @FXML private Label projectNameLabel;
     @FXML private Label configNameLabel;
@@ -98,6 +113,7 @@ public class MainController {
     @FXML private Label submissionTableHint;
     @FXML private Label resultsSummaryLabel;
     @FXML private Label currentRunLabel;
+    @FXML private Label readinessLabel;
 
     @FXML private TableView<StudentResult> resultsTable;
     @FXML private TableColumn<StudentResult, String> colStudentId;
@@ -121,13 +137,21 @@ public class MainController {
     private final ConfigurationService configurationService = new ConfigurationService();
     private final FileManager fileManager = new FileManager();
     private Task<List<StudentResult>> evaluationTask;
+    private Task<List<SubmissionInfo>> submissionScanTask;
+    private Task<String> expectedOutputLoadTask;
 
     private boolean suppressConfigurationListener = false;
     private boolean suppressFormListeners = false;
+    private boolean suppressExpectedOutputListener = false;
     private boolean formInitialized = false;
     private boolean showValidationMessages = false;
     private boolean projectDirty = false;
     private boolean configDirty = false;
+    private boolean expectedOutputDirty = false;
+    private boolean submissionsScanning = false;
+    private boolean closeApproved = false;
+    private String loadedExpectedOutputPath = "";
+    private String loadedExpectedOutputContent = "";
     private String activeConfigurationName = "";
     private String activeConfigurationLanguage = "";
 
@@ -147,14 +171,15 @@ public class MainController {
         refreshConfigurationChoices(null);
         configCombo.setOnAction(event -> {
             if (!suppressConfigurationListener) {
-                loadSelectedConfiguration();
+                selectConfigurationWithGuard();
             }
             updateContextLabels();
             validateForm(false);
         });
 
         submissionFolderField.setText("");
-        refreshSubmissionsTable();
+        clearSubmissionPreview("Choose a folder, then scan to preview ZIP files.");
+        clearExpectedOutputEditor();
         suppressFormListeners = false;
         formInitialized = true;
 
@@ -163,6 +188,7 @@ public class MainController {
         updateResultsSummary();
         updateContextLabels();
         validateForm(false);
+        updateActionStates();
     }
 
     private void configureResultTable() {
@@ -266,7 +292,9 @@ public class MainController {
     private void configureFieldListeners() {
         submissionFolderField.textProperty().addListener((obs, oldVal, newVal) -> {
             markFormEdited();
-            refreshSubmissionsTable();
+            cancelSubmissionScan();
+            clearSubmissionPreview("Click Scan to preview ZIP files in this folder.");
+            validateForm();
         });
         sourceFileField.textProperty().addListener((obs, oldVal, newVal) -> {
             markConfigurationEdited();
@@ -283,7 +311,23 @@ public class MainController {
         expectedOutputField.textProperty().addListener((obs, oldVal, newVal) -> {
             markProjectDirty();
             validateForm();
-            loadExpectedOutputContent();
+            if (!suppressFormListeners && !cleanText(newVal).equals(loadedExpectedOutputPath)) {
+                cancelExpectedOutputLoad();
+                loadedExpectedOutputPath = "";
+                loadedExpectedOutputContent = "";
+                expectedOutputDirty = false;
+                setExpectedOutputEditorContent("");
+                expectedOutputHintLabel.setText("Path changed. Click Load File to preview its contents.");
+            }
+            updateExpectedOutputActions();
+        });
+        expectedOutputTextArea.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (suppressExpectedOutputListener) {
+                return;
+            }
+            expectedOutputDirty = !Objects.equals(newVal, loadedExpectedOutputContent);
+            updateExpectedOutputHint();
+            updateExpectedOutputActions();
         });
         resultsData.addListener((javafx.collections.ListChangeListener<StudentResult>) change -> {
             updateResultsSummary();
@@ -310,8 +354,12 @@ public class MainController {
         saveProjectBtn.setMnemonicParsing(true);
         deleteProjectBtn.setMnemonicParsing(true);
         browseSubmissionsBtn.setMnemonicParsing(true);
+        scanSubmissionsBtn.setMnemonicParsing(true);
         browseExpectedOutputBtn.setMnemonicParsing(true);
         saveConfigBtn.setMnemonicParsing(true);
+        loadExpectedOutputBtn.setMnemonicParsing(true);
+        detachExpectedOutputBtn.setMnemonicParsing(true);
+        saveExpectedOutputBtn.setMnemonicParsing(true);
         runTestsBtn.setMnemonicParsing(true);
         cancelRunBtn.setMnemonicParsing(true);
 
@@ -322,6 +370,7 @@ public class MainController {
         compileCmdField.setAccessibleText("Compile command");
         runCmdField.setAccessibleText("Run command");
         expectedOutputField.setAccessibleText("Expected output file path");
+        expectedOutputTextArea.setAccessibleText("Expected output file contents");
         statusFilterCombo.setAccessibleText("Results status filter");
         resultsTable.setAccessibleText("Student test results");
         submissionsTable.setAccessibleText("Discovered student submission ZIP files");
@@ -357,6 +406,9 @@ public class MainController {
         if (isRunning()) {
             return;
         }
+        if (!confirmPendingChanges("creating a new project", true)) {
+            return;
+        }
 
         javafx.scene.control.TextInputDialog dialog =
                 new javafx.scene.control.TextInputDialog("New Project");
@@ -381,7 +433,12 @@ public class MainController {
         }
 
         projectService.setCurrentProject(p);
+        suppressFormListeners = true;
         submissionFolderField.setText("");
+        expectedOutputField.setText("");
+        suppressFormListeners = false;
+        clearSubmissionPreview("Choose a folder, then scan to preview ZIP files.");
+        clearExpectedOutputEditor();
         resultsData.clear();
         projectDirty = true;
         showValidationMessages = false;
@@ -389,6 +446,7 @@ public class MainController {
         lastRunLabel.setText("Not run yet");
         updateContextLabels();
         validateForm(false);
+        updateActionStates();
     }
 
     private Configuration promptForProjectConfiguration() {
@@ -457,8 +515,16 @@ public class MainController {
         if (isRunning()) {
             return;
         }
-
-        List<String> names = projectService.getAllProjectNames();
+        if (!confirmPendingChanges("opening another project", true)) {
+            return;
+        }
+        List<String> names;
+        try {
+            names = projectService.getAllProjectNames();
+        } catch (RuntimeException e) {
+            info("Open Project", "Could not list saved projects: " + e.getMessage());
+            return;
+        }
         if (names.isEmpty()) {
             info("Open Project", "No saved projects found.");
             return;
@@ -471,14 +537,26 @@ public class MainController {
         styleDialog(dialog);
 
         dialog.showAndWait().ifPresent(name -> {
-            com.iae.model.Project p = projectService.loadProject(name);
+            com.iae.model.Project p;
+            try {
+                p = projectService.loadProject(name);
+            } catch (RuntimeException e) {
+                info("Open Project", "Could not load project: " + e.getMessage());
+                return;
+            }
             if (p != null) {
+                cancelSubmissionScan();
+                cancelExpectedOutputLoad();
                 projectService.setCurrentProject(p);
+                suppressFormListeners = true;
                 submissionFolderField.setText(p.getSubmissionFolder() != null ? p.getSubmissionFolder() : "");
                 expectedOutputField.setText(p.getExpectedOutputPath() != null ? p.getExpectedOutputPath() : "");
+                suppressFormListeners = false;
                 if (p.getConfiguration() != null) {
                     applyConfigurationToForm(p.getConfiguration());
                 }
+                refreshSubmissionsTable();
+                loadExpectedOutputContent();
                 resultsData.clear();
                 if (p.getResults() != null) {
                     resultsData.addAll(p.getResults());
@@ -489,6 +567,7 @@ public class MainController {
                 lastRunLabel.setText(resultsData.isEmpty() ? "Not run yet" : "Loaded saved results");
                 updateContextLabels();
                 validateForm(false);
+                updateActionStates();
             } else {
                 info("Error", "Could not load project.");
             }
@@ -500,25 +579,33 @@ public class MainController {
         if (isRunning()) {
             return;
         }
+        saveCurrentProject(true);
+    }
 
-        com.iae.model.Project p = projectService.getCurrentProject();
-        if (p == null) {
+    private boolean saveCurrentProject(boolean notifySuccess) {
+        com.iae.model.Project project = projectService.getCurrentProject();
+        if (project == null) {
             info("Save Project", "No active project to save. Please create or open a project first.");
-            return;
+            return false;
         }
 
-        p.setSubmissionFolder(cleanText(submissionFolderField.getText()));
-        p.setExpectedOutputPath(cleanText(expectedOutputField.getText()));
-        p.setConfiguration(readConfigurationFromForm(configurationNameForSave(p.getName() + " Config")));
-        p.setResults(new ArrayList<>(resultsData));
+        project.setSubmissionFolder(cleanText(submissionFolderField.getText()));
+        project.setExpectedOutputPath(cleanText(expectedOutputField.getText()));
+        project.setConfiguration(readConfigurationFromForm(configurationNameForSave(project.getName() + " Config")));
+        project.setResults(new ArrayList<>(resultsData));
 
         try {
-            projectService.saveProject(p);
+            projectService.saveProject(project);
             projectDirty = false;
-            statusLeft.setText("Project saved successfully.");
+            if (notifySuccess) {
+                statusLeft.setText("Project saved successfully.");
+            }
             updateContextLabels();
-        } catch (Exception e) {
-            info("Error", "Failed to save project: " + e.getMessage());
+            updateActionStates();
+            return true;
+        } catch (RuntimeException e) {
+            info("Save Project", "Failed to save project: " + e.getMessage());
+            return false;
         }
     }
 
@@ -528,7 +615,13 @@ public class MainController {
             return;
         }
 
-        List<String> names = projectService.getAllProjectNames();
+        List<String> names;
+        try {
+            names = projectService.getAllProjectNames();
+        } catch (RuntimeException e) {
+            info("Delete Project", "Could not list saved projects: " + e.getMessage());
+            return;
+        }
         if (names.isEmpty()) {
             info("Delete Project", "No saved projects found.");
             return;
@@ -553,12 +646,21 @@ public class MainController {
         }
 
         String selected = result.get();
+        if (currentName != null && currentName.equals(selected)
+                && !confirmPendingChanges("deleting the current project", true)) {
+            return;
+        }
         if (!confirm("Delete Project", "Delete project '" + selected + "' and its saved results?")) {
             return;
         }
 
         boolean deletingCurrent = currentName != null && currentName.equals(selected);
-        projectService.deleteProject(selected);
+        try {
+            projectService.deleteProject(selected);
+        } catch (RuntimeException e) {
+            info("Delete Project", "Could not delete project: " + e.getMessage());
+            return;
+        }
 
         if (deletingCurrent) {
             clearCurrentProjectView();
@@ -568,6 +670,7 @@ public class MainController {
         statusRight.setText("");
         updateContextLabels();
         validateForm(false);
+        updateActionStates();
     }
 
     @FXML
@@ -625,6 +728,7 @@ public class MainController {
 
         TextField nameField = new TextField();
         nameField.getStyleClass().add("dialog-input");
+        nameField.setAccessibleText("Configuration name");
         nameField.setPromptText("e.g. Custom Java Config");
         if (editing) {
             nameField.setText(existing.getName() != null ? existing.getName() : "");
@@ -632,6 +736,7 @@ public class MainController {
 
         TextField languageField = new TextField();
         languageField.getStyleClass().add("dialog-input");
+        languageField.setAccessibleText("Configuration language");
         languageField.setPromptText("e.g. Java, C#, Go");
         if (editing) {
             languageField.setText(existing.getLanguage() != null ? existing.getLanguage() : "");
@@ -639,6 +744,7 @@ public class MainController {
 
         TextField sourceFileField = new TextField();
         sourceFileField.getStyleClass().add("dialog-input");
+        sourceFileField.setAccessibleText("Configuration source file");
         sourceFileField.setPromptText("e.g. Main.java, main.c, app.py");
         if (editing) {
             sourceFileField.setText(existing.getSourceFileName() != null ? existing.getSourceFileName() : "");
@@ -646,6 +752,7 @@ public class MainController {
 
         TextField compileCommandField = new TextField();
         compileCommandField.getStyleClass().add("dialog-input");
+        compileCommandField.setAccessibleText("Configuration compile command");
         compileCommandField.setPromptText("e.g. javac Main.java");
         if (editing) {
             compileCommandField.setText(existing.getCompileCommand() != null ? existing.getCompileCommand() : "");
@@ -653,6 +760,7 @@ public class MainController {
 
         TextField runCommandField = new TextField();
         runCommandField.getStyleClass().add("dialog-input");
+        runCommandField.setAccessibleText("Configuration run command");
         runCommandField.setPromptText("e.g. java Main");
         if (editing) {
             runCommandField.setText(existing.getRunCommand() != null ? existing.getRunCommand() : "");
@@ -682,15 +790,26 @@ public class MainController {
         fieldColumn.setHgrow(Priority.ALWAYS);
         grid.getColumnConstraints().addAll(labelColumn, fieldColumn);
 
-        grid.add(new Label("Name:"), 0, 0);
+        Label nameLabel = new Label("Name:");
+        nameLabel.setLabelFor(nameField);
+        Label languageLabel = new Label("Language:");
+        languageLabel.setLabelFor(languageField);
+        Label sourceFileLabel = new Label("Source File:");
+        sourceFileLabel.setLabelFor(sourceFileField);
+        Label compileCommandLabel = new Label("Compile Command:");
+        compileCommandLabel.setLabelFor(compileCommandField);
+        Label runCommandLabel = new Label("Run Command:");
+        runCommandLabel.setLabelFor(runCommandField);
+
+        grid.add(nameLabel, 0, 0);
         grid.add(nameField, 1, 0);
-        grid.add(new Label("Language:"), 0, 1);
+        grid.add(languageLabel, 0, 1);
         grid.add(languageField, 1, 1);
-        grid.add(new Label("Source File:"), 0, 2);
+        grid.add(sourceFileLabel, 0, 2);
         grid.add(sourceFileField, 1, 2);
-        grid.add(new Label("Compile Command:"), 0, 3);
+        grid.add(compileCommandLabel, 0, 3);
         grid.add(compileCommandField, 1, 3);
-        grid.add(new Label("Run Command:"), 0, 4);
+        grid.add(runCommandLabel, 0, 4);
         grid.add(runCommandField, 1, 4);
         grid.add(validationLabel, 0, 5);
         GridPane.setColumnSpan(validationLabel, 2);
@@ -731,11 +850,16 @@ public class MainController {
                         : "");
                 cfg.setRunCommand(runCommandField.getText().trim());
                 cfg.setCompiled(cfg.getCompileCommand() != null && !cfg.getCompileCommand().isBlank());
-                if (editing && !existing.getName().equals(cfg.getName())) {
-                    configurationService.removeConfiguration(existing.getName());
+                try {
+                    configurationService.saveConfiguration(cfg);
+                    if (editing && !existing.getName().equals(cfg.getName())) {
+                        configurationService.removeConfiguration(existing.getName());
+                    }
+                    return cfg;
+                } catch (RuntimeException e) {
+                    info("Save Configuration", "Could not save configuration: " + e.getMessage());
+                    return null;
                 }
-                configurationService.saveConfiguration(cfg);
-                return cfg;
             }
             return null;
         });
@@ -757,6 +881,7 @@ public class MainController {
         ListView<String> list = new ListView<>();
         list.setItems(FXCollections.observableArrayList(configurationService.listConfigurationNames()));
         list.setPrefSize(360, 240);
+        list.setAccessibleText("Saved configurations");
 
         ButtonType newBtnType = new ButtonType("New...", ButtonBar.ButtonData.LEFT);
         ButtonType loadBtnType = new ButtonType("Load / Edit", ButtonBar.ButtonData.OK_DONE);
@@ -765,7 +890,9 @@ public class MainController {
         dialog.getDialogPane().getButtonTypes()
                 .addAll(newBtnType, loadBtnType, deleteBtnType, closeBtnType);
 
-        VBox box = new VBox(8, new Label("Select a configuration:"), list);
+        Label listLabel = new Label("Select a configuration:");
+        listLabel.setLabelFor(list);
+        VBox box = new VBox(8, listLabel, list);
         box.setPadding(new Insets(10));
         dialog.getDialogPane().setContent(box);
 
@@ -773,29 +900,54 @@ public class MainController {
         newBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
             Configuration created = showCreateConfigurationDialog();
             if (created != null) {
-                refreshConfigurationChoices(created.getName());
                 list.setItems(FXCollections.observableArrayList(configurationService.listConfigurationNames()));
                 list.getSelectionModel().select(created.getName());
                 statusLeft.setText("Configuration created: " + created.getName());
+                if (confirmPendingChanges("loading the new configuration", false)) {
+                    refreshConfigurationChoices(created.getName());
+                    markProjectDirty();
+                } else {
+                    refreshConfigurationItemsOnly();
+                }
             }
             evt.consume();
         });
-
         Button deleteBtn = (Button) dialog.getDialogPane().lookupButton(deleteBtnType);
+        Button loadBtn = (Button) dialog.getDialogPane().lookupButton(loadBtnType);
+        deleteBtn.setDisable(true);
+        loadBtn.setDisable(true);
+        list.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            boolean empty = newVal == null;
+            deleteBtn.setDisable(empty);
+            loadBtn.setDisable(empty);
+        });
         deleteBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
             String selected = list.getSelectionModel().getSelectedItem();
             if (selected == null) {
                 info("Delete Configuration", "Please select a configuration first.");
             } else if (confirm("Delete Configuration", "Delete '" + selected + "'?")) {
-                configurationService.removeConfiguration(selected);
-                list.getItems().remove(selected);
-                refreshConfigurationChoices(null);
-                statusLeft.setText("Configuration deleted: " + selected);
+                if (selected.equals(activeConfigurationName)
+                        && !confirmPendingChanges("deleting the active configuration", false)) {
+                    evt.consume();
+                    return;
+                }
+                try {
+                    configurationService.removeConfiguration(selected);
+                    list.getItems().remove(selected);
+                    if (selected.equals(activeConfigurationName)) {
+                        refreshConfigurationChoices(null);
+                        markProjectDirty();
+                    } else {
+                        refreshConfigurationItemsOnly();
+                    }
+                    statusLeft.setText("Configuration deleted: " + selected);
+                } catch (RuntimeException e) {
+                    info("Delete Configuration", "Could not delete configuration: " + e.getMessage());
+                }
             }
             evt.consume();
         });
 
-        Button loadBtn = (Button) dialog.getDialogPane().lookupButton(loadBtnType);
         loadBtn.addEventFilter(javafx.event.ActionEvent.ACTION, evt -> {
             String selected = list.getSelectionModel().getSelectedItem();
             if (selected == null) {
@@ -814,13 +966,19 @@ public class MainController {
                 evt.consume();
                 return;
             }
-            refreshConfigurationChoices(edited.getName());
             list.setItems(FXCollections.observableArrayList(configurationService.listConfigurationNames()));
             list.getSelectionModel().select(edited.getName());
+            if (!confirmPendingChanges("loading the edited configuration", false)) {
+                refreshConfigurationItemsOnly();
+                evt.consume();
+                return;
+            }
+            refreshConfigurationChoices(edited.getName());
             applyConfigurationToForm(edited);
             com.iae.model.Project current = projectService.getCurrentProject();
             if (current != null) {
                 current.setConfiguration(edited);
+                markProjectDirty();
             }
             statusLeft.setText("Configuration saved and loaded: " + edited.getName());
         });
@@ -915,10 +1073,28 @@ public class MainController {
 
     @FXML
     private void onExit() {
+        if (requestClose()) {
+            ((Stage) runTestsBtn.getScene().getWindow()).close();
+        }
+    }
+
+    public boolean requestClose() {
+        if (closeApproved) {
+            return true;
+        }
+        if (isRunning() && !confirm("Exit Application", "An evaluation is running. Cancel it and exit?")) {
+            return false;
+        }
+        if (!confirmPendingChanges("exiting the application", true)) {
+            return false;
+        }
         if (evaluationTask != null) {
             evaluationTask.cancel();
         }
-        ((Stage) runTestsBtn.getScene().getWindow()).close();
+        cancelSubmissionScan();
+        cancelExpectedOutputLoad();
+        closeApproved = true;
+        return true;
     }
 
     @FXML
@@ -931,6 +1107,14 @@ public class MainController {
         File dir = chooser.showDialog(runTestsBtn.getScene().getWindow());
         if (dir != null) {
             submissionFolderField.setText(dir.getAbsolutePath());
+            refreshSubmissionsTable();
+        }
+    }
+
+    @FXML
+    private void onScanSubmissions() {
+        if (!isRunning()) {
+            refreshSubmissionsTable();
         }
     }
 
@@ -939,44 +1123,104 @@ public class MainController {
         if (isRunning()) {
             return;
         }
+        if (!confirmExpectedOutputChanges("selecting another expected-output file")) {
+            return;
+        }
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Select Expected Output File");
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text files", "*.txt", "*.out"));
         File f = chooser.showOpenDialog(runTestsBtn.getScene().getWindow());
         if (f != null) {
             expectedOutputField.setText(f.getAbsolutePath());
-        }
-    }
-
-    private void loadExpectedOutputContent() {
-        String path = cleanText(expectedOutputField.getText());
-        if (path.isBlank()) {
-            expectedOutputHintLabel.setText("No file loaded");
-            expectedOutputTextArea.setText("");
-            return;
-        }
-
-        File file = new File(path);
-        if (!file.exists() || !file.isFile()) {
-            expectedOutputHintLabel.setText("File not found: " + file.getName());
-            expectedOutputTextArea.setText("");
-            return;
-        }
-
-        try {
-            String content = Files.readString(file.toPath());
-            expectedOutputTextArea.setText(content);
-            expectedOutputHintLabel.setText("Loaded: " + file.getAbsolutePath());
-        } catch (Exception e) {
-            expectedOutputHintLabel.setText("Could not read file: " + file.getName());
-            expectedOutputTextArea.setText("");
+            loadExpectedOutputContent();
         }
     }
 
     @FXML
-    private void onSaveExpectedOutput() {
-        if (isRunning()) return;
+    private void onLoadExpectedOutput() {
+        if (!isRunning() && confirmExpectedOutputChanges("loading the selected expected-output file")) {
+            loadExpectedOutputContent();
+        }
+    }
 
+    private void loadExpectedOutputContent() {
+        cancelExpectedOutputLoad();
+        String path = cleanText(expectedOutputField.getText());
+        if (path.isBlank()) {
+            clearExpectedOutputEditor();
+            return;
+        }
+
+        File file = new File(path);
+        if (!file.isFile()) {
+            clearExpectedOutputEditor();
+            expectedOutputHintLabel.setText("File not found: " + file.getName());
+            return;
+        }
+
+        loadedExpectedOutputPath = "";
+        loadedExpectedOutputContent = "";
+        expectedOutputDirty = false;
+        setExpectedOutputEditorContent("");
+        expectedOutputTextArea.setDisable(true);
+        expectedOutputHintLabel.setText("Loading: " + file.getName());
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() throws Exception {
+                return Files.readString(file.toPath());
+            }
+        };
+        expectedOutputLoadTask = task;
+        updateExpectedOutputActions();
+        task.setOnSucceeded(event -> {
+            if (expectedOutputLoadTask != task || !path.equals(cleanText(expectedOutputField.getText()))) {
+                return;
+            }
+            expectedOutputLoadTask = null;
+            loadedExpectedOutputPath = path;
+            loadedExpectedOutputContent = task.getValue();
+            setExpectedOutputEditorContent(loadedExpectedOutputContent);
+            expectedOutputDirty = false;
+            expectedOutputTextArea.setDisable(false);
+            expectedOutputHintLabel.setText("Loaded: " + file.getAbsolutePath());
+            updateExpectedOutputActions();
+            validateForm(false);
+        });
+        task.setOnFailed(event -> {
+            if (expectedOutputLoadTask != task || !path.equals(cleanText(expectedOutputField.getText()))) {
+                return;
+            }
+            expectedOutputLoadTask = null;
+            clearExpectedOutputEditor();
+            expectedOutputHintLabel.setText("Could not read file: " + file.getName());
+            updateExpectedOutputActions();
+            validateForm(false);
+        });
+        task.setOnCancelled(event -> {
+            if (expectedOutputLoadTask == task) {
+                expectedOutputLoadTask = null;
+                expectedOutputTextArea.setDisable(false);
+                updateExpectedOutputActions();
+            }
+        });
+        Thread worker = new Thread(task, "expected-output-loader");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    @FXML
+    private void onSaveExpectedOutput() {
+        if (!isRunning()) {
+            saveExpectedOutputChanges();
+        }
+    }
+
+    private boolean saveExpectedOutputChanges() {
+        if (isRunning()) {
+            return false;
+        }
+
+        String content = expectedOutputTextArea.getText() != null ? expectedOutputTextArea.getText() : "";
         String path = cleanText(expectedOutputField.getText());
         File file;
 
@@ -986,69 +1230,193 @@ public class MainController {
             chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text files", "*.txt", "*.out"));
             File dest = chooser.showSaveDialog(runTestsBtn.getScene().getWindow());
             if (dest == null) {
-                return;
+                return false;
             }
             file = dest;
-            expectedOutputField.setText(file.getAbsolutePath());
+            suppressFormListeners = true;
+            try {
+                expectedOutputField.setText(file.getAbsolutePath());
+            } finally {
+                suppressFormListeners = false;
+            }
         } else {
             file = new File(path);
         }
 
+        if (file.isFile() && !confirm("Overwrite Expected Output",
+                "Replace the contents of '" + file.getName() + "' with the edited text?")) {
+            return false;
+        }
+
         try {
-            Files.writeString(file.toPath(), expectedOutputTextArea.getText() != null ? expectedOutputTextArea.getText() : "");
+            Files.writeString(file.toPath(), content);
+            loadedExpectedOutputPath = cleanText(expectedOutputField.getText());
+            loadedExpectedOutputContent = content;
+            expectedOutputDirty = false;
             expectedOutputHintLabel.setText("Saved: " + file.getAbsolutePath());
+            updateExpectedOutputActions();
+            validateForm(false);
             info("Expected Output Saved", "Successfully saved changes to expected output.");
+            return true;
         } catch (Exception e) {
             info("Error", "Could not save expected output: " + e.getMessage());
+            return false;
         }
     }
 
     @FXML
     private void onClearExpectedOutput() {
-        if (isRunning()) return;
-        
-        if (confirm("Clear Expected Output", "This will remove the expected output file from the current project. Continue?")) {
+        if (isRunning() || !confirmExpectedOutputChanges("detaching this expected-output file")) {
+            return;
+        }
+
+        if (cleanText(expectedOutputField.getText()).isBlank()
+                || confirm("Detach Expected Output",
+                "Detach the expected output file from the current project? The file will not be deleted.")) {
             expectedOutputField.setText("");
-            expectedOutputTextArea.setText("");
-            expectedOutputHintLabel.setText("No file loaded");
+            clearExpectedOutputEditor();
+            validateForm(false);
         }
     }
 
     private void refreshSubmissionsTable() {
-        submissionsData.clear();
+        cancelSubmissionScan();
         String path = cleanText(submissionFolderField.getText());
 
         if (path.isBlank()) {
-            projectValidationLabel.setText("Choose a folder to preview ZIP files.");
-            statusRight.setText("");
-            updateContextLabels();
+            clearSubmissionPreview("Choose a folder to preview ZIP files.");
             validateForm();
             return;
         }
 
         File folder = new File(path);
         if (!folder.isDirectory()) {
-            projectValidationLabel.setText("Folder is not available.");
-            statusRight.setText("");
-            updateContextLabels();
+            clearSubmissionPreview("Folder is not available.");
             validateForm();
             return;
         }
 
-        List<File> zips = fileManager.discoverZipFiles(folder);
-        for (File zip : zips) {
-            String name = zip.getName();
-            String studentId = name.contains(".") ? name.substring(0, name.lastIndexOf('.')) : name;
-            String size = humanReadableSize(zip.length());
-            submissionsData.add(new SubmissionInfo(name, studentId, size));
-        }
+        submissionsScanning = true;
+        submissionsData.clear();
+        submissionTableHint.setText("Scanning ZIP files...");
+        statusRight.setText("Scanning submissions...");
+        validateForm(false);
+        Task<List<SubmissionInfo>> task = new Task<>() {
+            @Override
+            protected List<SubmissionInfo> call() {
+                List<SubmissionInfo> discovered = new ArrayList<>();
+                for (File zip : fileManager.discoverZipFiles(folder)) {
+                    if (isCancelled()) {
+                        return discovered;
+                    }
+                    String name = zip.getName();
+                    String studentId = name.contains(".") ? name.substring(0, name.lastIndexOf('.')) : name;
+                    discovered.add(new SubmissionInfo(name, studentId, humanReadableSize(zip.length())));
+                }
+                return discovered;
+            }
+        };
+        submissionScanTask = task;
+        task.setOnSucceeded(event -> {
+            if (submissionScanTask != task || !path.equals(cleanText(submissionFolderField.getText()))) {
+                return;
+            }
+            submissionScanTask = null;
+            submissionsScanning = false;
+            submissionsData.setAll(task.getValue());
+            submissionTableHint.setText(submissionsData.isEmpty()
+                    ? "No ZIP files found in this folder."
+                    : submissionsData.size() + " ZIP file(s) ready.");
+            statusRight.setText(submissionsData.size() + " submission(s) found.");
+            updateContextLabels();
+            validateForm();
+        });
+        task.setOnFailed(event -> {
+            if (submissionScanTask != task || !path.equals(cleanText(submissionFolderField.getText()))) {
+                return;
+            }
+            submissionScanTask = null;
+            submissionsScanning = false;
+            clearSubmissionPreview("Could not scan the selected folder.");
+            statusLeft.setText("Submission folder scan failed.");
+            validateForm();
+        });
+        task.setOnCancelled(event -> {
+            if (submissionScanTask == task) {
+                submissionScanTask = null;
+                submissionsScanning = false;
+                validateForm(false);
+            }
+        });
+        Thread worker = new Thread(task, "submission-folder-scanner");
+        worker.setDaemon(true);
+        worker.start();
+    }
 
-        projectValidationLabel.setText(submissionsData.isEmpty()
-                ? "No ZIP files found in this folder."
-                : submissionsData.size() + " ZIP file(s) ready.");
-        statusRight.setText(submissionsData.size() + " submission(s) found.");
+    private void cancelSubmissionScan() {
+        if (submissionScanTask != null) {
+            submissionScanTask.cancel();
+            submissionScanTask = null;
+        }
+        submissionsScanning = false;
+    }
+
+    private void clearSubmissionPreview(String hint) {
+        submissionsData.clear();
+        submissionTableHint.setText(hint);
+        statusRight.setText("");
         updateContextLabels();
-        validateForm();
+    }
+
+    private void cancelExpectedOutputLoad() {
+        if (expectedOutputLoadTask != null) {
+            expectedOutputLoadTask.cancel();
+            expectedOutputLoadTask = null;
+        }
+        if (expectedOutputTextArea != null) {
+            expectedOutputTextArea.setDisable(false);
+        }
+    }
+
+    private void clearExpectedOutputEditor() {
+        cancelExpectedOutputLoad();
+        loadedExpectedOutputPath = "";
+        loadedExpectedOutputContent = "";
+        expectedOutputDirty = false;
+        setExpectedOutputEditorContent("");
+        expectedOutputHintLabel.setText("No file loaded");
+        updateExpectedOutputActions();
+    }
+
+    private void setExpectedOutputEditorContent(String content) {
+        suppressExpectedOutputListener = true;
+        try {
+            expectedOutputTextArea.setText(content);
+        } finally {
+            suppressExpectedOutputListener = false;
+        }
+    }
+
+    private void updateExpectedOutputHint() {
+        if (expectedOutputDirty) {
+            expectedOutputHintLabel.setText("Unsaved changes. Save or discard before changing files.");
+        } else if (!loadedExpectedOutputPath.isBlank()) {
+            expectedOutputHintLabel.setText("Loaded: " + loadedExpectedOutputPath);
+        }
+    }
+
+    private void updateExpectedOutputActions() {
+        if (loadExpectedOutputBtn == null) {
+            return;
+        }
+        boolean running = isRunning();
+        boolean loading = expectedOutputLoadTask != null;
+        boolean hasPath = !cleanText(expectedOutputField.getText()).isBlank();
+        loadExpectedOutputBtn.setDisable(running || loading || !hasPath || expectedOutputDirty);
+        detachExpectedOutputBtn.setDisable(running || loading || (!hasPath && !expectedOutputDirty));
+        saveExpectedOutputBtn.setDisable(running || loading || !expectedOutputDirty);
+        expectedOutputField.setDisable(running || expectedOutputDirty);
+        expectedOutputTextArea.setDisable(running || loading);
     }
 
     private String humanReadableSize(long bytes) {
@@ -1068,6 +1436,9 @@ public class MainController {
         if (isRunning()) {
             return;
         }
+        if (!confirmExpectedOutputChanges("running tests")) {
+            return;
+        }
         showValidationMessages = true;
         if (!validateForm(true)) {
             statusLeft.setText("Fix highlighted fields before running tests.");
@@ -1076,17 +1447,7 @@ public class MainController {
 
         File submissionsFolder = new File(cleanText(submissionFolderField.getText()));
         Configuration configuration = readConfigurationFromForm(configurationNameForSave("Runtime Configuration"));
-        File expectedFile = new File(cleanText(expectedOutputField.getText()));
-        String expectedOutput;
-
-        try {
-            expectedOutput = Files.readString(expectedFile.toPath());
-        } catch (Exception e) {
-            configValidationLabel.setText("Could not read expected output file: " + e.getMessage());
-            statusLeft.setText("Expected output file could not be read.");
-            validateForm(true);
-            return;
-        }
+        String expectedOutput = loadedExpectedOutputContent;
 
         com.iae.model.Project current = projectService.getCurrentProject();
         if (current != null) {
@@ -1103,8 +1464,6 @@ public class MainController {
     }
 
     private void startEvaluationTask(File submissionsFolder, Configuration configuration, String expectedOutput) {
-        setEvaluationRunning(true);
-
         evaluationTask = new Task<>() {
             @Override
             protected List<StudentResult> call() {
@@ -1133,6 +1492,7 @@ public class MainController {
             }
         };
 
+        setEvaluationRunning(true);
         runProgress.progressProperty().bind(evaluationTask.progressProperty());
         currentRunLabel.textProperty().bind(evaluationTask.messageProperty());
 
@@ -1208,20 +1568,7 @@ public class MainController {
         setManagedVisible(runProgress, running);
         setManagedVisible(cancelRunBtn, running);
         cancelRunBtn.setDisable(!running);
-
-        newProjectBtn.setDisable(running);
-        openProjectBtn.setDisable(running);
-        saveProjectBtn.setDisable(running);
-        deleteProjectBtn.setDisable(running);
-        browseSubmissionsBtn.setDisable(running);
-        browseExpectedOutputBtn.setDisable(running);
-        saveConfigBtn.setDisable(running);
-        configCombo.setDisable(running);
-        sourceFileField.setDisable(running);
-        compileCmdField.setDisable(running);
-        runCmdField.setDisable(running);
-        expectedOutputField.setDisable(running);
-        submissionFolderField.setDisable(running);
+        updateActionStates();
         runTestsBtn.setDisable(running || !validateForm(showValidationMessages));
     }
 
@@ -1239,10 +1586,16 @@ public class MainController {
             showValidationMessages = true;
         }
 
+        boolean projectError = projectService.getCurrentProject() == null;
         boolean folderError = false;
         boolean configError = false;
+        List<String> projectMessages = new ArrayList<>();
         List<String> folderMessages = new ArrayList<>();
         List<String> configMessages = new ArrayList<>();
+
+        if (projectError) {
+            projectMessages.add("Create or open a project first.");
+        }
 
         String folderPath = cleanText(submissionFolderField.getText());
         if (folderPath.isBlank()) {
@@ -1253,9 +1606,12 @@ public class MainController {
             if (!folder.isDirectory()) {
                 folderError = true;
                 folderMessages.add("Submission folder does not exist.");
+            } else if (submissionsScanning) {
+                folderError = true;
+                folderMessages.add("Submission scan is still running.");
             } else if (submissionsData.isEmpty()) {
                 folderError = true;
-                folderMessages.add("No ZIP files were found in this folder.");
+                folderMessages.add("Scan this folder and confirm it contains ZIP files.");
             }
         }
 
@@ -1283,9 +1639,21 @@ public class MainController {
         } else if (!new File(expectedPath).isFile()) {
             configError = true;
             configMessages.add("Expected output file was not found.");
+        } else if (expectedOutputLoadTask != null) {
+            configError = true;
+            configMessages.add("Expected output file is still loading.");
+        } else if (!expectedPath.equals(loadedExpectedOutputPath)) {
+            configError = true;
+            configMessages.add("Click Load File to load the expected output before running tests.");
+        }
+        if (expectedOutputDirty) {
+            configError = true;
+            configMessages.add("Save expected output changes before running tests.");
         }
 
-        projectValidationLabel.setText(showValidationMessages ? String.join(" ", folderMessages) : "");
+        List<String> projectAndFolderMessages = new ArrayList<>(projectMessages);
+        projectAndFolderMessages.addAll(folderMessages);
+        projectValidationLabel.setText(showValidationMessages ? String.join(" ", projectAndFolderMessages) : "");
         configValidationLabel.setText(showValidationMessages ? String.join(" ", configMessages) : "");
 
         submissionFolderField.pseudoClassStateChanged(ERROR, showValidationMessages && folderError);
@@ -1298,14 +1666,16 @@ public class MainController {
         expectedOutputField.pseudoClassStateChanged(ERROR, showValidationMessages
                 && (expectedPath.isBlank() || !new File(expectedPath).isFile()));
 
-        boolean valid = !folderError && !configError;
+        boolean valid = !projectError && !folderError && !configError;
         if (evaluationTask == null) {
             runTestsBtn.setDisable(!valid);
         }
-        updateRunTooltip(valid, folderMessages, configMessages);
+        List<String> readinessMessages = new ArrayList<>(projectAndFolderMessages);
+        readinessMessages.addAll(configMessages);
+        readinessLabel.setText(valid ? "Ready to run tests." : readinessMessages.get(0));
+        updateRunTooltip(valid, readinessMessages);
         return valid;
     }
-
     private void addOrReplaceResult(StudentResult result) {
         for (int i = 0; i < resultsData.size(); i++) {
             StudentResult existing = resultsData.get(i);
@@ -1315,6 +1685,29 @@ public class MainController {
             }
         }
         resultsData.add(result);
+    }
+
+    private void selectConfigurationWithGuard() {
+        String selectedName = configCombo.getValue();
+        if (Objects.equals(selectedName, activeConfigurationName)) {
+            return;
+        }
+        if (!confirmPendingChanges("switching configurations", false)) {
+            suppressConfigurationListener = true;
+            try {
+                configCombo.setValue(activeConfigurationName.isBlank() ? null : activeConfigurationName);
+            } finally {
+                suppressConfigurationListener = false;
+            }
+            return;
+        }
+        suppressConfigurationListener = true;
+        try {
+            configCombo.setValue(selectedName);
+        } finally {
+            suppressConfigurationListener = false;
+        }
+        loadSelectedConfiguration();
     }
 
     private void loadSelectedConfiguration() {
@@ -1353,7 +1746,6 @@ public class MainController {
                 sourceFileField.setText("");
                 compileCmdField.setText("");
                 runCmdField.setText("");
-                expectedOutputField.setText("");
             }
         } finally {
             suppressConfigurationListener = false;
@@ -1367,7 +1759,25 @@ public class MainController {
         }
     }
 
+    private void refreshConfigurationItemsOnly() {
+        String selectedName = configCombo.getValue();
+        List<String> names = configurationService.listConfigurationNames();
+        suppressConfigurationListener = true;
+        try {
+            configCombo.setItems(FXCollections.observableArrayList(names));
+            if (selectedName != null && names.contains(selectedName)) {
+                configCombo.setValue(selectedName);
+            } else {
+                configCombo.getSelectionModel().clearSelection();
+            }
+        } finally {
+            suppressConfigurationListener = false;
+        }
+    }
+
     private void clearCurrentProjectView() {
+        cancelSubmissionScan();
+        cancelExpectedOutputLoad();
         suppressFormListeners = true;
         submissionFolderField.setText("");
         expectedOutputField.setText("");
@@ -1376,7 +1786,8 @@ public class MainController {
         runCmdField.setText("");
         suppressFormListeners = false;
         resultsData.clear();
-        submissionsData.clear();
+        clearSubmissionPreview("Choose a folder, then scan to preview ZIP files.");
+        clearExpectedOutputEditor();
         lastRunLabel.setText("Not run yet");
         projectDirty = false;
         configDirty = false;
@@ -1385,6 +1796,7 @@ public class MainController {
         updateResultsSummary();
         updateContextLabels();
         validateForm(false);
+        updateActionStates();
     }
 
     private void applyResultsFilter() {
@@ -1465,6 +1877,139 @@ public class MainController {
         return evaluationTask != null;
     }
 
+    private boolean confirmPendingChanges(String action, boolean includeProject) {
+        List<String> pending = new ArrayList<>();
+        if (expectedOutputDirty) {
+            pending.add("expected-output edits");
+        }
+        if (configDirty) {
+            pending.add("configuration changes");
+        }
+        if (includeProject && projectDirty) {
+            pending.add("project changes");
+        }
+        if (pending.isEmpty()) {
+            return true;
+        }
+
+        ButtonType saveButton = new ButtonType("Save", ButtonBar.ButtonData.YES);
+        ButtonType discardButton = new ButtonType("Discard", ButtonBar.ButtonData.NO);
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                "There are unsaved " + String.join(", ", pending)
+                        + ". Save before " + action + "?",
+                saveButton, discardButton, ButtonType.CANCEL);
+        alert.setTitle("Unsaved Changes");
+        alert.setHeaderText("Unsaved changes");
+        styleAlert(alert);
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isEmpty() || result.get() == ButtonType.CANCEL) {
+            return false;
+        }
+        if (result.get() == discardButton) {
+            if (expectedOutputDirty) {
+                discardExpectedOutputChanges();
+            }
+            return true;
+        }
+        return savePendingChanges(includeProject);
+    }
+
+    private boolean confirmExpectedOutputChanges(String action) {
+        if (!expectedOutputDirty) {
+            return true;
+        }
+        ButtonType saveButton = new ButtonType("Save", ButtonBar.ButtonData.YES);
+        ButtonType discardButton = new ButtonType("Discard", ButtonBar.ButtonData.NO);
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                "The expected-output editor contains unsaved changes. Save before " + action + "?",
+                saveButton, discardButton, ButtonType.CANCEL);
+        alert.setTitle("Unsaved Expected Output");
+        alert.setHeaderText("Unsaved expected-output changes");
+        styleAlert(alert);
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isEmpty() || result.get() == ButtonType.CANCEL) {
+            return false;
+        }
+        if (result.get() == discardButton) {
+            discardExpectedOutputChanges();
+            return true;
+        }
+        return saveExpectedOutputChanges();
+    }
+
+    private boolean savePendingChanges(boolean includeProject) {
+        if (expectedOutputDirty && !saveExpectedOutputChanges()) {
+            return false;
+        }
+        if (configDirty && !saveActiveConfiguration()) {
+            return false;
+        }
+        return !includeProject || !projectDirty || saveCurrentProject(false);
+    }
+
+    private boolean saveActiveConfiguration() {
+        if (activeConfigurationName.isBlank()) {
+            info("Save Configuration", "Select a named configuration before saving changes.");
+            return false;
+        }
+        try {
+            configurationService.saveConfiguration(readConfigurationFromForm(activeConfigurationName));
+            configDirty = false;
+            statusLeft.setText("Configuration saved: " + activeConfigurationName);
+            updateContextLabels();
+            return true;
+        } catch (RuntimeException e) {
+            info("Save Configuration", "Could not save configuration: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private void discardExpectedOutputChanges() {
+        setExpectedOutputEditorContent(loadedExpectedOutputContent);
+        expectedOutputDirty = false;
+        updateExpectedOutputHint();
+        updateExpectedOutputActions();
+        validateForm(false);
+    }
+
+    private void updateActionStates() {
+        boolean running = isRunning();
+        boolean hasProject = projectService.getCurrentProject() != null;
+        boolean hasSavedProjects;
+        try {
+            hasSavedProjects = !projectService.getAllProjectNames().isEmpty();
+        } catch (RuntimeException e) {
+            hasSavedProjects = false;
+            statusLeft.setText("Saved projects could not be loaded.");
+        }
+
+        newProjectBtn.setDisable(running);
+        openProjectBtn.setDisable(running || !hasSavedProjects);
+        saveProjectBtn.setDisable(running || !hasProject);
+        deleteProjectBtn.setDisable(running || !hasSavedProjects);
+        browseSubmissionsBtn.setDisable(running);
+        scanSubmissionsBtn.setDisable(running);
+        browseExpectedOutputBtn.setDisable(running);
+        saveConfigBtn.setDisable(running);
+        manageConfigBtn.setDisable(running);
+        configCombo.setDisable(running);
+        sourceFileField.setDisable(running);
+        compileCmdField.setDisable(running);
+        runCmdField.setDisable(running);
+        submissionFolderField.setDisable(running);
+
+        newProjectMenuItem.setDisable(running);
+        openProjectMenuItem.setDisable(running || !hasSavedProjects);
+        saveProjectMenuItem.setDisable(running || !hasProject);
+        deleteProjectMenuItem.setDisable(running || !hasSavedProjects);
+        importConfigMenuItem.setDisable(running);
+        exportConfigMenuItem.setDisable(running);
+        manageConfigsMenuItem.setDisable(running);
+        updateExpectedOutputActions();
+    }
+
     private String timestamp() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
     }
@@ -1501,14 +2046,11 @@ public class MainController {
         return !activeConfigurationName.isBlank() ? activeConfigurationName : fallback;
     }
 
-    private void updateRunTooltip(boolean valid, List<String> folderMessages, List<String> configMessages) {
+    private void updateRunTooltip(boolean valid, List<String> reasons) {
         if (valid) {
             runTestsBtn.setTooltip(new Tooltip("Run the active configuration against discovered submissions."));
             return;
         }
-        List<String> reasons = new ArrayList<>();
-        reasons.addAll(folderMessages);
-        reasons.addAll(configMessages);
         String reason = reasons.isEmpty()
                 ? "Complete the project inputs before running tests."
                 : reasons.get(0);

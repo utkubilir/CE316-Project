@@ -91,7 +91,7 @@ public class ProjectRepository {
 
             conn.commit();
         } catch (SQLException e) {
-            System.err.println("Error saving project: " + e.getMessage());
+            throw new PersistenceException("Could not save project.", e);
         }
     }
 
@@ -151,7 +151,7 @@ public class ProjectRepository {
                 project.setResults(results);
             }
         } catch (SQLException e) {
-            System.err.println("Error loading project: " + e.getMessage());
+            throw new PersistenceException("Could not load project.", e);
         }
 
         return project;
@@ -185,7 +185,7 @@ public class ProjectRepository {
 
             conn.commit();
         } catch (SQLException e) {
-            System.err.println("Error deleting project: " + e.getMessage());
+            throw new PersistenceException("Could not delete project.", e);
         }
     }
 
@@ -200,7 +200,7 @@ public class ProjectRepository {
                 names.add(rs.getString("name"));
             }
         } catch (SQLException e) {
-            System.err.println("Error loading project names: " + e.getMessage());
+            throw new PersistenceException("Could not list projects.", e);
         }
         return names;
     }

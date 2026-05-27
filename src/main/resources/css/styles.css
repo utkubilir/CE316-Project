@@ -36,6 +36,20 @@
     -fx-pref-width: 230;
     -fx-min-width: 220;
 }
+.sidebar-scroll {
+    -fx-background: #eef2f6;
+    -fx-background-color: #eef2f6;
+    -fx-border-color: transparent;
+}
+.sidebar-scroll > .viewport,
+.sidebar-body {
+    -fx-background-color: #eef2f6;
+}
+.sidebar-actions {
+    -fx-background-color: #eef2f6;
+    -fx-border-color: #d7dde5 transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
 
 .side-label {
     -fx-font-size: 12px;

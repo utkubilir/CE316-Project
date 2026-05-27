@@ -47,7 +47,7 @@ public class ConfigurationRepository {
             pstmt.setInt(6, cfg.isCompiled() ? 1 : 0);
             pstmt.executeUpdate();
         } catch (SQLException e) {
-            System.err.println("Error saving configuration: " + e.getMessage());
+            throw new PersistenceException("Could not save configuration.", e);
         }
     }
 
@@ -58,7 +58,7 @@ public class ConfigurationRepository {
             pstmt.setString(1, name);
             pstmt.executeUpdate();
         } catch (SQLException e) {
-            System.err.println("Error deleting configuration: " + e.getMessage());
+            throw new PersistenceException("Could not delete configuration.", e);
         }
     }
 
@@ -73,7 +73,7 @@ public class ConfigurationRepository {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Error loading configuration: " + e.getMessage());
+            throw new PersistenceException("Could not load configuration.", e);
         }
         return null;
     }
@@ -88,7 +88,7 @@ public class ConfigurationRepository {
                 out.add(readConfiguration(rs));
             }
         } catch (SQLException e) {
-            System.err.println("Error listing configurations: " + e.getMessage());
+            throw new PersistenceException("Could not list configurations.", e);
         }
         return out;
     }
@@ -103,7 +103,7 @@ public class ConfigurationRepository {
                 names.add(rs.getString("name"));
             }
         } catch (SQLException e) {
-            System.err.println("Error listing configuration names: " + e.getMessage());
+            throw new PersistenceException("Could not list configuration names.", e);
         }
         return names;
     }
