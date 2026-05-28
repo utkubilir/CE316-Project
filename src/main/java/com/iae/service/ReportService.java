@@ -70,6 +70,10 @@ public class ReportService {
                 .append(".summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }\n")
                 .append(".summary-card { background: #f9fafb; padding: 12px; border-radius: 6px; }\n")
                 .append(".summary-card .num { font-size: 1.6em; font-weight: 700; }\n")
+                .append("td.grade { font-weight: 700; white-space: nowrap; }\n")
+                .append("td.grade.grade-high { color: #15803d; }\n")
+                .append("td.grade.grade-mid { color: #b45309; }\n")
+                .append("td.grade.grade-low { color: #b91c1c; }\n")
                 .append("</style>\n")
                 .append("</head><body>\n");
 
@@ -96,6 +100,9 @@ public class ReportService {
         sb.append("<section><h2>Summary</h2>\n<div class=\"summary-grid\">\n");
         int total = results == null ? 0 : results.size();
         appendSummaryCard(sb, "Total", total);
+        if (total > 0) {
+            appendSummaryCard(sb, "Avg Grade / 100", averageGrade(results));
+        }
         for (TestStatus status : TestStatus.values()) {
             int n = counts.getOrDefault(status, 0);
             if (n > 0) {
@@ -109,11 +116,13 @@ public class ReportService {
             sb.append("<p>No student submissions evaluated.</p>\n");
         } else {
             sb.append("<table>\n")
-                    .append("<thead><tr><th>Student ID</th><th>Status</th><th>Details</th></tr></thead>\n<tbody>\n");
+                    .append("<thead><tr><th>Student ID</th><th>Status</th><th>Grade</th><th>Details</th></tr></thead>\n<tbody>\n");
             for (StudentResult r : results) {
                 sb.append("<tr><td>").append(escape(r.getStudentId())).append("</td>")
                         .append("<td><span class=\"pill ").append(pillClass(r.getStatus())).append("\">")
                         .append(escape(r.getStatus().display())).append("</span></td>")
+                        .append("<td class=\"grade ").append(gradeClass(r.getGrade())).append("\">")
+                        .append(r.getGrade()).append(" / 100</td>")
                         .append("<td><pre>").append(escape(emptyToDash(r.getDetails()))).append("</pre></td></tr>\n");
             }
             sb.append("</tbody></table>\n");
@@ -139,6 +148,19 @@ public class ReportService {
     private static void appendSummaryCard(StringBuilder sb, String label, int count) {
         sb.append("<div class=\"summary-card\"><div class=\"num\">")
                 .append(count).append("</div><div>").append(escape(label)).append("</div></div>\n");
+    }
+
+    private static int averageGrade(List<StudentResult> results) {
+        if (results == null || results.isEmpty()) {
+            return 0;
+        }
+        return (int) Math.round(results.stream().mapToInt(StudentResult::getGrade).average().orElse(0));
+    }
+
+    private static String gradeClass(int grade) {
+        if (grade >= 100) return "grade-high";
+        if (grade >= 50) return "grade-mid";
+        return "grade-low";
     }
 
     private static Map<TestStatus, Integer> countByStatus(List<StudentResult> results) {

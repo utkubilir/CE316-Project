@@ -15,6 +15,11 @@ import java.util.regex.Pattern;
  * Runs the configuration's compile / run commands against a student's
  * working directory and compares the program's output to the expected
  * output (Requirements #7 and #8).
+ *
+ * <p>Every {@link StudentResult} produced here also carries a 0-100 grade
+ * derived from its {@link TestStatus} (tiered scoring, see
+ * {@link TestStatus#score()}): a clean pass scores 100, an output mismatch
+ * earns partial credit, and error / missing-source outcomes score lower.
  */
 public class ExecutionEngine {
 

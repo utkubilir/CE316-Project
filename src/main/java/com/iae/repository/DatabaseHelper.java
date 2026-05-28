@@ -63,9 +63,16 @@ public class DatabaseHelper {
                     "student_id TEXT, " +
                     "status TEXT, " +
                     "details TEXT, " +
+                    "grade INTEGER, " +
                     "FOREIGN KEY(project_name) REFERENCES projects(name) ON DELETE CASCADE" +
                     ");";
             stmt.execute(createResultsTable);
+
+            try {
+                stmt.execute("ALTER TABLE results ADD COLUMN grade INTEGER;");
+            } catch (SQLException ignore) {
+                // Column already exists.
+            }
 
             // Standalone, reusable configurations (Requirement #4).
             // Independent from project-scoped configurations so they survive

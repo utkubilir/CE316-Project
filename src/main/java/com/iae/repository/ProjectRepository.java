@@ -76,14 +76,15 @@ public class ProjectRepository {
 
             // 4. Insert results
             if (project.getResults() != null && !project.getResults().isEmpty()) {
-                String insertResult = "INSERT INTO results (project_name, student_id, status, details) " +
-                        "VALUES (?, ?, ?, ?);";
+                String insertResult = "INSERT INTO results (project_name, student_id, status, details, grade) " +
+                        "VALUES (?, ?, ?, ?, ?);";
                 try (PreparedStatement pstmt = conn.prepareStatement(insertResult)) {
                     for (StudentResult result : project.getResults()) {
                         pstmt.setString(1, project.getName());
                         pstmt.setString(2, result.getStudentId());
                         pstmt.setString(3, result.getStatus().name());
                         pstmt.setString(4, result.getDetails());
+                        pstmt.setInt(5, result.getGrade());
                         pstmt.addBatch();
                     }
                     pstmt.executeBatch();
@@ -141,10 +142,18 @@ public class ProjectRepository {
                     pstmt.setString(1, projectName);
                     try (ResultSet rs = pstmt.executeQuery()) {
                         while (rs.next()) {
+                            TestStatus status = TestStatus.valueOf(rs.getString("status"));
+                            int grade = rs.getInt("grade");
+                            // Rows saved before the grade column existed are NULL;
+                            // fall back to the status-derived score for those.
+                            if (rs.wasNull()) {
+                                grade = status.score();
+                            }
                             StudentResult result = new StudentResult(
                                     rs.getString("student_id"),
-                                    TestStatus.valueOf(rs.getString("status")),
-                                    rs.getString("details")
+                                    status,
+                                    rs.getString("details"),
+                                    grade
                             );
                             results.add(result);
                         }

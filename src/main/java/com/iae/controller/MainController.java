@@ -72,6 +72,12 @@ public class MainController {
             "status-missing",
             "status-pending"
     );
+    private static final List<String> GRADE_CELL_CLASSES = List.of(
+            "grade-cell",
+            "grade-high",
+            "grade-mid",
+            "grade-low"
+    );
 
     @FXML private ComboBox<String> configCombo;
     @FXML private Label expectedOutputHintLabel;
@@ -123,6 +129,7 @@ public class MainController {
     @FXML private TableView<StudentResult> resultsTable;
     @FXML private TableColumn<StudentResult, String> colStudentId;
     @FXML private TableColumn<StudentResult, TestStatus> colStatus;
+    @FXML private TableColumn<StudentResult, Number> colGrade;
     @FXML private TableColumn<StudentResult, String> colDetails;
     @FXML private TableColumn<StudentResult, Void> colActions;
     @FXML private ComboBox<String> statusFilterCombo;
@@ -201,6 +208,24 @@ public class MainController {
         colStudentId.setCellValueFactory(new PropertyValueFactory<>("studentId"));
         colDetails.setCellValueFactory(new PropertyValueFactory<>("details"));
         colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
+        colGrade.setCellValueFactory(new PropertyValueFactory<>("grade"));
+
+        colGrade.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(Number item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().removeAll(GRADE_CELL_CLASSES);
+                if (empty || item == null) {
+                    setText(null);
+                    setTooltip(null);
+                } else {
+                    int value = item.intValue();
+                    getStyleClass().addAll("grade-cell", gradeStyleClass(value));
+                    setText(value + " / 100");
+                    setTooltip(new Tooltip("Score: " + value + " out of 100"));
+                }
+            }
+        });
 
         colStatus.setCellFactory(column -> new TableCell<>() {
             @Override
@@ -398,12 +423,13 @@ public class MainController {
     }
 
     private void resizeResultColumns() {
-        double width = Math.max(520, resultsTable.getWidth() - 18);
-        colStudentId.setPrefWidth(Math.max(110, width * 0.18));
-        colStatus.setPrefWidth(Math.max(130, width * 0.20));
+        double width = Math.max(560, resultsTable.getWidth() - 18);
+        colStudentId.setPrefWidth(Math.max(110, width * 0.16));
+        colStatus.setPrefWidth(Math.max(130, width * 0.18));
+        colGrade.setPrefWidth(84);
         colActions.setPrefWidth(88);
-        colDetails.setPrefWidth(Math.max(220, width - colStudentId.getPrefWidth()
-                - colStatus.getPrefWidth() - colActions.getPrefWidth()));
+        colDetails.setPrefWidth(Math.max(200, width - colStudentId.getPrefWidth()
+                - colStatus.getPrefWidth() - colGrade.getPrefWidth() - colActions.getPrefWidth()));
     }
 
     private void resizeSubmissionColumns() {
@@ -2011,9 +2037,11 @@ public class MainController {
         long failed = shown - passed;
         long timeout = filteredResultsData.stream().filter(r -> r.getStatus() == TestStatus.TIMEOUT).count();
         long compile = filteredResultsData.stream().filter(r -> r.getStatus() == TestStatus.COMPILATION_ERROR).count();
+        double avgGrade = filteredResultsData.stream().mapToInt(StudentResult::getGrade).average().orElse(0);
         String prefix = shown == total ? total + " total" : shown + " of " + total + " shown";
         resultsSummaryLabel.setText(prefix + " - " + passed + " passed - " + failed
-                + " failed - " + compile + " compile - " + timeout + " timeout");
+                + " failed - " + compile + " compile - " + timeout + " timeout"
+                + String.format(" - avg %.0f/100", avgGrade));
     }
 
     private void updateContextLabels() {
@@ -2039,6 +2067,16 @@ public class MainController {
             return "Output matched expected output.";
         }
         return "No details recorded.";
+    }
+
+    private String gradeStyleClass(int grade) {
+        if (grade >= 100) {
+            return "grade-high";
+        }
+        if (grade >= 50) {
+            return "grade-mid";
+        }
+        return "grade-low";
     }
 
     private String statusStyleClass(TestStatus status) {
@@ -2297,7 +2335,8 @@ public class MainController {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Student Result Details");
         alert.setHeaderText("Result for Student: " + result.getStudentId()
-                + "\nStatus: " + result.getStatus().display());
+                + "\nStatus: " + result.getStatus().display()
+                + "\nGrade: " + result.getGrade() + " / 100");
         styleAlert(alert);
 
         TextArea textArea = new TextArea(detailsText(result));
