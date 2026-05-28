@@ -11,6 +11,7 @@
 <?import javafx.scene.control.SeparatorMenuItem?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.SplitPane?>
 <?import javafx.scene.control.Tab?>
 <?import javafx.scene.control.TabPane?>
 <?import javafx.scene.control.TableColumn?>
@@ -25,6 +26,7 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.VBox?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
@@ -122,16 +124,24 @@
                                     <children>
                                         <Button fx:id="newProjectBtn" text="_New" maxWidth="Infinity" styleClass="side-btn"
                                                 GridPane.columnIndex="0" GridPane.rowIndex="0"
-                                                accessibleText="Create a new project" onAction="#onNewProject"/>
+                                                accessibleText="Create a new project" onAction="#onNewProject">
+                                            <graphic><FontIcon iconLiteral="fas-plus"/></graphic>
+                                        </Button>
                                         <Button fx:id="openProjectBtn" text="_Open" maxWidth="Infinity" styleClass="side-btn"
                                                 GridPane.columnIndex="1" GridPane.rowIndex="0"
-                                                accessibleText="Open a saved project" onAction="#onOpenProject"/>
+                                                accessibleText="Open a saved project" onAction="#onOpenProject">
+                                            <graphic><FontIcon iconLiteral="fas-folder-open"/></graphic>
+                                        </Button>
                                         <Button fx:id="saveProjectBtn" text="_Save" maxWidth="Infinity" styleClass="side-btn"
                                                 GridPane.columnIndex="0" GridPane.rowIndex="1"
-                                                accessibleText="Save the active project" onAction="#onSaveProject"/>
+                                                accessibleText="Save the active project" onAction="#onSaveProject">
+                                            <graphic><FontIcon iconLiteral="fas-save"/></graphic>
+                                        </Button>
                                         <Button fx:id="deleteProjectBtn" text="_Delete" maxWidth="Infinity" styleClass="danger-btn"
                                                 GridPane.columnIndex="1" GridPane.rowIndex="1"
-                                                accessibleText="Delete a saved project" onAction="#onDeleteProject"/>
+                                                accessibleText="Delete a saved project" onAction="#onDeleteProject">
+                                            <graphic><FontIcon iconLiteral="fas-trash"/></graphic>
+                                        </Button>
                                     </children>
                                 </GridPane>
 
@@ -143,17 +153,23 @@
                                     <children>
                                         <Button fx:id="browseSubmissionsBtn" text="_Browse..." maxWidth="Infinity"
                                                 HBox.hgrow="ALWAYS" styleClass="side-btn-secondary"
-                                                accessibleText="Choose submissions folder" onAction="#onBrowseSubmissions"/>
+                                                accessibleText="Choose submissions folder" onAction="#onBrowseSubmissions">
+                                            <graphic><FontIcon iconLiteral="fas-folder-open"/></graphic>
+                                        </Button>
                                         <Button fx:id="scanSubmissionsBtn" text="_Scan" maxWidth="Infinity"
                                                 HBox.hgrow="ALWAYS" styleClass="side-btn-secondary"
-                                                accessibleText="Scan typed submissions folder" onAction="#onScanSubmissions"/>
+                                                accessibleText="Scan typed submissions folder" onAction="#onScanSubmissions">
+                                            <graphic><FontIcon iconLiteral="fas-search"/></graphic>
+                                        </Button>
                                     </children>
                                 </HBox>
 
                                 <Label text="Expected Output File:" styleClass="side-label" labelFor="$expectedOutputField"/>
                                 <TextField fx:id="expectedOutputField" promptText="/path/to/expected_output.txt" styleClass="side-input"/>
                                 <Button fx:id="browseExpectedOutputBtn" text="_Browse..." maxWidth="Infinity" styleClass="side-btn-secondary"
-                                        accessibleText="Choose expected output file" onAction="#onBrowseExpectedOutput"/>
+                                        accessibleText="Choose expected output file" onAction="#onBrowseExpectedOutput">
+                                    <graphic><FontIcon iconLiteral="fas-folder-open"/></graphic>
+                                </Button>
 
                                 <Label fx:id="projectValidationLabel" text="" styleClass="validation-text" wrapText="true"/>
                             </children>
@@ -168,12 +184,16 @@
                         <Label fx:id="readinessLabel" text="Create or open a project first." styleClass="side-help"
                                wrapText="true"/>
                         <Button fx:id="runTestsBtn" text="_Run Tests" maxWidth="Infinity" styleClass="run-btn"
-                                accessibleText="Run tests for discovered submissions" onAction="#onRunTests"/>
+                                accessibleText="Run tests for discovered submissions" onAction="#onRunTests">
+                            <graphic><FontIcon iconLiteral="fas-play"/></graphic>
+                        </Button>
                         <ProgressBar fx:id="runProgress" progress="0" maxWidth="Infinity" visible="false" managed="false"/>
                         <Label fx:id="currentRunLabel" text="" styleClass="side-help" wrapText="true"/>
                         <Button fx:id="cancelRunBtn" text="_Cancel Run" maxWidth="Infinity" styleClass="side-btn-secondary"
                                 accessibleText="Cancel running evaluation" onAction="#onCancelRun"
-                                visible="false" managed="false"/>
+                                visible="false" managed="false">
+                            <graphic><FontIcon iconLiteral="fas-stop"/></graphic>
+                        </Button>
                     </children>
                 </VBox>
             </bottom>
@@ -181,9 +201,9 @@
     </left>
 
     <center>
-        <VBox spacing="0">
-            <children>
-                <TabPane fx:id="mainTabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS" styleClass="main-tabs"
+        <SplitPane orientation="VERTICAL" dividerPositions="0.56" styleClass="main-split">
+            <items>
+                <TabPane fx:id="mainTabs" tabClosingPolicy="UNAVAILABLE" styleClass="main-tabs"
                          minHeight="180">
                     <tabs>
                         <Tab text="Configuration">
@@ -213,7 +233,9 @@
                                                     <ComboBox fx:id="configCombo" GridPane.rowIndex="0" GridPane.columnIndex="1"
                                                               maxWidth="320"/>
                                                     <Button fx:id="manageConfigBtn" text="Manage..." GridPane.rowIndex="0" GridPane.columnIndex="2"
-                                                            maxWidth="Infinity" onAction="#onManageConfigs"/>
+                                                            maxWidth="Infinity" onAction="#onManageConfigs">
+                                                        <graphic><FontIcon iconLiteral="fas-cog"/></graphic>
+                                                    </Button>
 
                                                     <Label text="Language:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
                                                     <Label fx:id="configLanguageLabel" text="No language specified"
@@ -248,7 +270,9 @@
                                                     <children>
                                                         <Button fx:id="saveConfigBtn" text="Save Config As..." styleClass="save-btn"
                                                                 accessibleText="Save current configuration under a name"
-                                                                onAction="#onSaveConfig"/>
+                                                                onAction="#onSaveConfig">
+                                                            <graphic><FontIcon iconLiteral="fas-save"/></graphic>
+                                                        </Button>
                                                     </children>
                                                 </HBox>
                                             </children>
@@ -304,13 +328,19 @@
                                             <children>
                                                 <Button fx:id="loadExpectedOutputBtn" text="_Load File" styleClass="side-btn-secondary"
                                                         accessibleText="Load expected output file contents"
-                                                        onAction="#onLoadExpectedOutput"/>
+                                                        onAction="#onLoadExpectedOutput">
+                                                    <graphic><FontIcon iconLiteral="fas-file-import"/></graphic>
+                                                </Button>
                                                 <Button fx:id="detachExpectedOutputBtn" text="_Detach File" styleClass="side-btn-secondary"
                                                         accessibleText="Detach expected output file from the project"
-                                                        onAction="#onClearExpectedOutput"/>
+                                                        onAction="#onClearExpectedOutput">
+                                                    <graphic><FontIcon iconLiteral="fas-unlink"/></graphic>
+                                                </Button>
                                                 <Button fx:id="saveExpectedOutputBtn" text="_Save Changes" styleClass="save-btn"
                                                         accessibleText="Save edited expected output contents"
-                                                        onAction="#onSaveExpectedOutput"/>
+                                                        onAction="#onSaveExpectedOutput">
+                                                    <graphic><FontIcon iconLiteral="fas-save"/></graphic>
+                                                </Button>
                                             </children>
                                         </HBox>
                                     </children>
@@ -320,7 +350,7 @@
                     </tabs>
                 </TabPane>
 
-                <VBox styleClass="results-section" spacing="6" VBox.vgrow="ALWAYS">
+                <VBox styleClass="results-section" spacing="6" minHeight="160">
                     <padding><Insets top="10" right="18" bottom="10" left="18"/></padding>
                     <children>
                         <HBox alignment="CENTER_LEFT" spacing="10">
@@ -331,7 +361,9 @@
                                 <Region HBox.hgrow="ALWAYS"/>
                                 <Button fx:id="exportReportBtn" text="Export Report..." styleClass="side-btn-secondary"
                                         accessibleText="Export results as an HTML report"
-                                        onAction="#onExportReport"/>
+                                        onAction="#onExportReport">
+                                    <graphic><FontIcon iconLiteral="fas-file-export"/></graphic>
+                                </Button>
                                 <Label text="Filter:" styleClass="muted-text" labelFor="$statusFilterCombo"/>
                                 <ComboBox fx:id="statusFilterCombo" prefWidth="180"/>
                             </children>
@@ -340,14 +372,15 @@
                             <columns>
                                 <TableColumn fx:id="colStudentId" text="Student ID" prefWidth="130"/>
                                 <TableColumn fx:id="colStatus" text="Status" prefWidth="150"/>
-                                <TableColumn fx:id="colDetails" text="Details" prefWidth="430"/>
+                                <TableColumn fx:id="colGrade" text="Grade" prefWidth="90"/>
+                                <TableColumn fx:id="colDetails" text="Details" prefWidth="380"/>
                                 <TableColumn fx:id="colActions" text="" prefWidth="90" sortable="false" resizable="false"/>
                             </columns>
                         </TableView>
                     </children>
                 </VBox>
-            </children>
-        </VBox>
+            </items>
+        </SplitPane>
     </center>
 
     <bottom>
