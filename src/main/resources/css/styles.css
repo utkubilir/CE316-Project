@@ -168,24 +168,90 @@
     -fx-text-fill: #6b7280;
 }
 
-/* ---- Icons (ikonli) ---- */
+/* ---- Icons (ikonli) ----
+   Icons must always contrast with their button. The rule of thumb:
+   light / flat buttons get a dark (or accent) icon; dark primary action
+   buttons get a white icon. Every styled button is mapped explicitly so an
+   icon can never fall back to an invisible (e.g. white-on-light) colour. */
 .ikonli-font-icon {
     -fx-icon-size: 14;
     -fx-icon-color: #374151;
 }
+/* Light-background buttons -> dark / accent icons (clearly visible) */
 .side-btn .ikonli-font-icon,
-.side-btn-secondary .ikonli-font-icon {
+.side-btn-secondary .ikonli-font-icon,
+.details-btn .ikonli-font-icon {
     -fx-icon-color: #2563eb;
 }
-.danger-btn .ikonli-font-icon {
+.config-pane .button .ikonli-font-icon {
+    -fx-icon-color: #374151;
+}
+.danger-btn .ikonli-font-icon,
+.exit-btn .ikonli-font-icon {
     -fx-icon-color: #dc2626;
 }
+/* Dark primary action buttons -> white icons */
 .run-btn .ikonli-font-icon {
     -fx-icon-color: white;
     -fx-icon-size: 15;
 }
 .save-btn .ikonli-font-icon {
     -fx-icon-color: white;
+}
+
+/* ---- Exit button (top context bar) ---- */
+.exit-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: #e7c3c0;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-text-fill: #b42318;
+    -fx-font-weight: bold;
+    -fx-padding: 6 14;
+    -fx-cursor: hand;
+    -fx-graphic-text-gap: 7;
+}
+.exit-btn:hover { -fx-background-color: #fef2f2; -fx-border-color: #f1b0ab; }
+.exit-btn:pressed { -fx-background-color: #fde4e4; }
+.exit-btn:focused { -fx-border-color: #dc2626; -fx-border-width: 2; }
+
+/* ---- In-app source code editor ----
+   Monospaced, flat, editor-like surface. Line wrapping is disabled on the
+   control itself (setWrapText(false)) so code lines keep their structure. */
+.code-viewer {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 12.5px;
+    -fx-control-inner-background: #f8fafc;
+    -fx-background-color: #e2e8f0;
+    -fx-background-radius: 8;
+    -fx-border-color: #d7dde5;
+    -fx-border-radius: 8;
+}
+.code-viewer .content {
+    -fx-background-color: #f8fafc;
+    -fx-background-radius: 8;
+}
+.code-viewer .text {
+    -fx-fill: #1f2937;
+}
+.code-viewer:focused {
+    -fx-border-color: #2563eb;
+    -fx-background-color: #2563eb;
+}
+.code-viewer:disabled {
+    -fx-opacity: 0.85;
+}
+
+/* Session-only edit warning shown above the code editor */
+.editor-warning {
+    -fx-font-style: italic;
+    -fx-font-size: 12px;
+    -fx-text-fill: #92400e;
+    -fx-background-color: #fef3c7;
+    -fx-border-color: #fcd34d;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-padding: 6 10;
 }
 
 /* ---- Progress bar ---- */

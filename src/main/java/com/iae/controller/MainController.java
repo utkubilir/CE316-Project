@@ -29,6 +29,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
@@ -41,6 +43,7 @@ import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
@@ -149,6 +152,7 @@ public class MainController {
     private final ConfigurationService configurationService = new ConfigurationService();
     private final FileManager fileManager = new FileManager();
     private final ReportService reportService = new ReportService();
+    private final ExecutionEngine executionEngine = new ExecutionEngine();
     private Task<List<StudentResult>> evaluationTask;
     private Task<List<SubmissionInfo>> submissionScanTask;
     private Task<String> expectedOutputLoadTask;
@@ -1281,9 +1285,16 @@ public class MainController {
 
     @FXML
     private void onExit() {
-        if (requestClose()) {
-            ((Stage) runTestsBtn.getScene().getWindow()).close();
+        // requestClose() handles the "evaluation running" prompt and any
+        // unsaved-change confirmations (confirmPendingChanges) and aborts the
+        // exit if the user cancels.
+        if (!requestClose()) {
+            return;
         }
+        if (runTestsBtn.getScene() != null && runTestsBtn.getScene().getWindow() instanceof Stage stage) {
+            stage.close();
+        }
+        Platform.exit();
     }
 
     public boolean requestClose() {
@@ -2334,18 +2345,197 @@ public class MainController {
     private void showResultDetailsDialog(StudentResult result) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Student Result Details");
+        updateResultDialogHeader(alert, result);
+        styleAlert(alert);
+        alert.setResizable(true);
+
+        TextArea detailsArea = new TextArea(detailsText(result));
+        detailsArea.setEditable(false);
+        detailsArea.setWrapText(true);
+
+        // ----- Source Code tab: an in-app editor -----
+        File sourceFile = locateStudentSourceFile(result);
+        TextArea sourceArea = new TextArea(readSourceText(sourceFile));
+        sourceArea.setEditable(sourceFile != null);
+        sourceArea.setWrapText(false);
+        sourceArea.getStyleClass().add("code-viewer");
+        VBox.setVgrow(sourceArea, Priority.ALWAYS);
+
+        Label editorStatus = new Label(sourceFile != null
+                ? "Editable — fix the code, then Save & Re-evaluate to recompile and run this submission."
+                : "Source is not available to edit for this submission.");
+        editorStatus.getStyleClass().add("muted-text");
+        editorStatus.setWrapText(true);
+        editorStatus.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(editorStatus, Priority.ALWAYS);
+
+        Button saveReevalBtn = new Button("Save & Re-evaluate");
+        saveReevalBtn.getStyleClass().add("save-btn");
+        saveReevalBtn.setDisable(sourceFile == null);
+
+        HBox editorBar = new HBox(10, editorStatus, saveReevalBtn);
+        editorBar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        VBox sourceBox = new VBox(8, sourceArea, editorBar);
+
+        if (sourceFile != null) {
+            Label sessionWarning = new Label(
+                    "Note: Edits made here only apply to the current session. "
+                            + "The original student ZIP submission is never modified.");
+            sessionWarning.getStyleClass().add("editor-warning");
+            sessionWarning.setWrapText(true);
+            sessionWarning.setMaxWidth(Double.MAX_VALUE);
+            sourceBox.getChildren().add(0, sessionWarning);
+        }
+
+        saveReevalBtn.setOnAction(e -> saveAndReevaluate(
+                alert, result, sourceFile, sourceArea, detailsArea, editorStatus, saveReevalBtn));
+
+        Tab detailsTab = new Tab("Details", detailsArea);
+        detailsTab.setClosable(false);
+        Tab sourceTab = new Tab("Source Code", sourceBox);
+        sourceTab.setClosable(false);
+
+        TabPane tabs = new TabPane(detailsTab, sourceTab);
+        tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabs.setPrefSize(680, 460);
+
+        alert.getDialogPane().setContent(tabs);
+        alert.showAndWait();
+    }
+
+    private void updateResultDialogHeader(Alert alert, StudentResult result) {
         alert.setHeaderText("Result for Student: " + result.getStudentId()
                 + "\nStatus: " + result.getStatus().display()
                 + "\nGrade: " + result.getGrade() + " / 100");
-        styleAlert(alert);
+    }
 
-        TextArea textArea = new TextArea(detailsText(result));
-        textArea.setEditable(false);
-        textArea.setWrapText(true);
-        textArea.setPrefWidth(560);
-        textArea.setPrefHeight(320);
+    /**
+     * Reads the student's source file for the in-app editor. Submissions are
+     * extracted to {@code working_directory/<studentId>} during a run, so the
+     * source can be edited for any student evaluated in this session.
+     */
+    private String readSourceText(File sourceFile) {
+        if (sourceFile == null) {
+            return "Source code is not available for this submission.\n\n"
+                    + "Source is read from the extracted files under "
+                    + "'working_directory'. Run the tests in this session to view "
+                    + "and edit a student's code here.";
+        }
+        try {
+            return Files.readString(sourceFile.toPath());
+        } catch (Exception e) {
+            return "Could not read source file:\n" + sourceFile.getAbsolutePath()
+                    + "\n\n" + e.getMessage();
+        }
+    }
 
-        alert.getDialogPane().setContent(textArea);
-        alert.showAndWait();
+    /**
+     * Writes the edited source back to the student's extracted file and
+     * immediately re-compiles and runs only that submission, updating its
+     * result row and grade in place. The original ZIP is not touched, so a
+     * subsequent full "Run Tests" re-extracts the unedited submission.
+     */
+    private void saveAndReevaluate(Alert alert,
+                                   StudentResult result,
+                                   File sourceFile,
+                                   TextArea sourceArea,
+                                   TextArea detailsArea,
+                                   Label editorStatus,
+                                   Button saveReevalBtn) {
+        if (sourceFile == null) {
+            return;
+        }
+        if (isRunning()) {
+            editorStatus.setText("Cannot re-evaluate while a full run is in progress.");
+            return;
+        }
+
+        try {
+            Files.writeString(sourceFile.toPath(),
+                    sourceArea.getText() == null ? "" : sourceArea.getText());
+        } catch (Exception ex) {
+            editorStatus.setText("Could not save file: " + ex.getMessage());
+            return;
+        }
+
+        Configuration cfg = readConfigurationFromForm(configurationNameForSave("Re-evaluation"));
+        String expectedOutput = loadedExpectedOutputContent;
+        File workingDirectory = sourceFile.getParentFile();
+        String studentId = result.getStudentId();
+
+        saveReevalBtn.setDisable(true);
+        sourceArea.setDisable(true);
+        editorStatus.setText("Saved. Re-compiling and running " + studentId + "...");
+
+        Task<StudentResult> task = new Task<>() {
+            @Override
+            protected StudentResult call() {
+                return executionEngine.evaluateSubmission(
+                        studentId,
+                        workingDirectory,
+                        cfg.getCompileCommand(),
+                        cfg.getRunCommand(),
+                        cfg.getRunArgs(),
+                        expectedOutput);
+            }
+        };
+        task.setOnSucceeded(ev -> {
+            StudentResult updated = task.getValue();
+            addOrReplaceResult(updated);
+            detailsArea.setText(detailsText(updated));
+            updateResultDialogHeader(alert, updated);
+            editorStatus.setText("Re-evaluated: " + updated.getStatus().display()
+                    + " — " + updated.getGrade() + " / 100");
+            statusLeft.setText("Re-evaluated " + studentId + ": " + updated.getStatus().display()
+                    + " (" + updated.getGrade() + "/100)");
+            persistResultsToCurrentProject();
+            sourceArea.setDisable(false);
+            saveReevalBtn.setDisable(false);
+        });
+        task.setOnFailed(ev -> {
+            Throwable error = task.getException();
+            editorStatus.setText("Re-evaluation failed: "
+                    + (error != null && error.getMessage() != null ? error.getMessage() : "unknown error"));
+            sourceArea.setDisable(false);
+            saveReevalBtn.setDisable(false);
+        });
+
+        Thread worker = new Thread(task, "inplace-reeval-" + studentId);
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private void persistResultsToCurrentProject() {
+        com.iae.model.Project current = projectService.getCurrentProject();
+        if (current != null) {
+            current.setResults(new ArrayList<>(resultsData));
+            projectDirty = true;
+            updateContextLabels();
+        }
+    }
+
+    private File locateStudentSourceFile(StudentResult result) {
+        if (result == null || result.getStudentId() == null || result.getStudentId().isBlank()) {
+            return null;
+        }
+        File studentDir = new File("working_directory", result.getStudentId());
+        if (!studentDir.isDirectory()) {
+            return null;
+        }
+        String sourceName = cleanText(sourceFileField.getText());
+        if (!sourceName.isBlank()) {
+            File found = fileManager.findSourceFile(studentDir, sourceName);
+            if (found != null) {
+                return found;
+            }
+        }
+        com.iae.model.Project project = projectService.getCurrentProject();
+        if (project != null && project.getConfiguration() != null) {
+            String configured = cleanText(project.getConfiguration().getSourceFileName());
+            if (!configured.isBlank() && !configured.equals(sourceName)) {
+                return fileManager.findSourceFile(studentDir, configured);
+            }
+        }
+        return null;
     }
 }

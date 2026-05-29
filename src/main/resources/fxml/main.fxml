@@ -101,6 +101,11 @@
                                        maxWidth="170" textOverrun="ELLIPSIS"/>
                             </children>
                         </VBox>
+                        <Separator orientation="VERTICAL"/>
+                        <Button fx:id="exitBtn" text="Exit" styleClass="exit-btn"
+                                accessibleText="Exit the application" onAction="#onExit">
+                            <graphic><FontIcon iconLiteral="fas-sign-out-alt"/></graphic>
+                        </Button>
                     </children>
                 </HBox>
             </children>

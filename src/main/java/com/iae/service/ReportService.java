@@ -42,12 +42,17 @@ public class ReportService {
         Configuration cfg = project.getConfiguration();
 
         StringBuilder sb = new StringBuilder(8192);
+        // The report is fully self-contained: all CSS is inlined below and only
+        // locally-available system fonts are used. No CDNs, web fonts, external
+        // stylesheets or scripts are referenced, so it renders identically in any
+        // browser with no internet connection.
         sb.append("<!DOCTYPE html>\n")
                 .append("<html lang=\"en\"><head>\n")
                 .append("<meta charset=\"UTF-8\">\n")
+                .append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n")
                 .append("<title>").append(escape(project.getName())).append(" — IAE Report</title>\n")
                 .append("<style>\n")
-                .append("body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; ")
+                .append("body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; ")
                 .append("margin: 24px; color: #1f2937; }\n")
                 .append("h1 { margin-bottom: 4px; }\n")
                 .append(".meta { color: #6b7280; font-size: 0.9em; margin-bottom: 24px; }\n")
@@ -57,7 +62,8 @@ public class ReportService {
                 .append("th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }\n")
                 .append("th { background: #f9fafb; }\n")
                 .append("pre { background: #f3f4f6; padding: 8px; margin: 0; border-radius: 4px; ")
-                .append("white-space: pre-wrap; word-break: break-word; font-size: 0.85em; }\n")
+                .append("white-space: pre-wrap; word-break: break-word; font-size: 0.85em; ")
+                .append("font-family: Consolas, 'Courier New', monospace; }\n")
                 .append(".pill { display: inline-block; padding: 2px 10px; border-radius: 999px; ")
                 .append("font-size: 0.85em; font-weight: 600; }\n")
                 .append(".passed { background: #dcfce7; color: #14532d; }\n")
