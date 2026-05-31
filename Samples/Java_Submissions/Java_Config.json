@@ -1,0 +1,9 @@
+{
+  "name": "Java Custom Test Config",
+  "language": "Java",
+  "sourceFileName": "Main.java",
+  "compileCommand": "javac Main.java",
+  "runCommand": "java Main",
+  "runArgs": [],
+  "compiled": true
+}

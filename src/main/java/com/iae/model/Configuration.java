@@ -12,33 +12,69 @@ public class Configuration {
     private List<String> runArgs = new ArrayList<>();
     private boolean compiled = true;
 
-    public Configuration() {}
+    public Configuration() {
+    }
 
     public Configuration(String name, String language) {
         this.name = name;
         this.language = language;
     }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public String getName() {
+        return name;
+    }
 
-    public String getLanguage() { return language; }
-    public void setLanguage(String language) { this.language = language; }
+    public void setName(String name) {
+        this.name = name;
+    }
 
-    public String getSourceFileName() { return sourceFileName; }
-    public void setSourceFileName(String sourceFileName) { this.sourceFileName = sourceFileName; }
+    public String getLanguage() {
+        return language;
+    }
 
-    public String getCompileCommand() { return compileCommand; }
-    public void setCompileCommand(String compileCommand) { this.compileCommand = compileCommand; }
+    public void setLanguage(String language) {
+        this.language = language;
+    }
 
-    public String getRunCommand() { return runCommand; }
-    public void setRunCommand(String runCommand) { this.runCommand = runCommand; }
+    public String getSourceFileName() {
+        return sourceFileName;
+    }
 
-    public List<String> getRunArgs() { return runArgs; }
-    public void setRunArgs(List<String> runArgs) { this.runArgs = runArgs != null ? runArgs : new ArrayList<>(); }
+    public void setSourceFileName(String sourceFileName) {
+        this.sourceFileName = sourceFileName;
+    }
 
-    public boolean isCompiled() { return compiled; }
-    public void setCompiled(boolean compiled) { this.compiled = compiled; }
+    public String getCompileCommand() {
+        return compileCommand;
+    }
+
+    public void setCompileCommand(String compileCommand) {
+        this.compileCommand = compileCommand;
+    }
+
+    public String getRunCommand() {
+        return runCommand;
+    }
+
+    public void setRunCommand(String runCommand) {
+        this.runCommand = runCommand;
+    }
+
+    public List<String> getRunArgs() {
+        return runArgs;
+    }
+
+    public void setRunArgs(List<String> runArgs) {
+        this.runArgs = runArgs != null ? runArgs : new ArrayList<>();
+    }
+
+    public boolean isCompiled() {
+        return compiled;
+    }
+
+    public void setCompiled(boolean compiled) {
+        this.compiled = compiled;
+    }
 
     @Override
     public String toString() {

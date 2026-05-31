@@ -22,8 +22,7 @@ import java.util.Map;
  */
 public class ReportService {
 
-    private static final DateTimeFormatter TIMESTAMP =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public void exportReport(Project project, String expectedOutput, File destination) throws IOException {
         if (project == null) {
@@ -164,8 +163,10 @@ public class ReportService {
     }
 
     private static String gradeClass(int grade) {
-        if (grade >= 100) return "grade-high";
-        if (grade >= 50) return "grade-mid";
+        if (grade >= 100)
+            return "grade-high";
+        if (grade >= 50)
+            return "grade-mid";
         return "grade-low";
     }
 
@@ -182,7 +183,8 @@ public class ReportService {
     }
 
     private static String pillClass(TestStatus status) {
-        if (status == null) return "pending";
+        if (status == null)
+            return "pending";
         return switch (status) {
             case PASSED -> "passed";
             case FAILED -> "failed";
@@ -202,9 +204,11 @@ public class ReportService {
         }
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < args.size(); i++) {
-            if (i > 0) sb.append(' ');
+            if (i > 0)
+                sb.append(' ');
             String arg = args.get(i);
-            if (arg == null) continue;
+            if (arg == null)
+                continue;
             if (arg.contains(" ")) {
                 sb.append('"').append(arg.replace("\"", "\\\"")).append('"');
             } else {
@@ -219,7 +223,8 @@ public class ReportService {
     }
 
     static String escape(String value) {
-        if (value == null) return "";
+        if (value == null)
+            return "";
         return value
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")

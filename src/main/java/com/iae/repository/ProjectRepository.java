@@ -26,72 +26,80 @@ public class ProjectRepository {
 
         try (Connection conn = DatabaseHelper.getConnection()) {
             conn.setAutoCommit(false);
+            try {
 
-            // 1. Insert or update the project
-            String upsertProject = "INSERT INTO projects (name, submission_folder, report_path, expected_output_path) " +
-                    "VALUES (?, ?, ?, ?) " +
-                    "ON CONFLICT(name) DO UPDATE SET " +
-                    "submission_folder=excluded.submission_folder, " +
-                    "report_path=excluded.report_path, " +
-                    "expected_output_path=excluded.expected_output_path;";
-            try (PreparedStatement pstmt = conn.prepareStatement(upsertProject)) {
-                pstmt.setString(1, project.getName());
-                pstmt.setString(2, project.getSubmissionFolder());
-                pstmt.setString(3, project.getReportPath());
-                pstmt.setString(4, project.getExpectedOutputPath());
-                pstmt.executeUpdate();
-            }
-
-            // 2. Delete existing configurations and results for the project (to overwrite cleanly)
-            String deleteConfigs = "DELETE FROM configurations WHERE project_name = ?;";
-            try (PreparedStatement pstmt = conn.prepareStatement(deleteConfigs)) {
-                pstmt.setString(1, project.getName());
-                pstmt.executeUpdate();
-            }
-
-            String deleteResults = "DELETE FROM results WHERE project_name = ?;";
-            try (PreparedStatement pstmt = conn.prepareStatement(deleteResults)) {
-                pstmt.setString(1, project.getName());
-                pstmt.executeUpdate();
-            }
-
-            // 3. Insert configuration
-            if (project.getConfiguration() != null) {
-                Configuration cfg = project.getConfiguration();
-                String insertConfig = "INSERT INTO configurations (project_name, name, language, source_file_name, " +
-                        "compile_command, run_command, run_args, compiled) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
-                try (PreparedStatement pstmt = conn.prepareStatement(insertConfig)) {
+                // 1. Insert or update the project
+                String upsertProject = "INSERT INTO projects (name, submission_folder, report_path, expected_output_path) "
+                        +
+                        "VALUES (?, ?, ?, ?) " +
+                        "ON CONFLICT(name) DO UPDATE SET " +
+                        "submission_folder=excluded.submission_folder, " +
+                        "report_path=excluded.report_path, " +
+                        "expected_output_path=excluded.expected_output_path;";
+                try (PreparedStatement pstmt = conn.prepareStatement(upsertProject)) {
                     pstmt.setString(1, project.getName());
-                    pstmt.setString(2, cfg.getName());
-                    pstmt.setString(3, cfg.getLanguage());
-                    pstmt.setString(4, cfg.getSourceFileName());
-                    pstmt.setString(5, cfg.getCompileCommand());
-                    pstmt.setString(6, cfg.getRunCommand());
-                    pstmt.setString(7, RunArgsCodec.encode(cfg.getRunArgs()));
-                    pstmt.setInt(8, cfg.isCompiled() ? 1 : 0);
+                    pstmt.setString(2, project.getSubmissionFolder());
+                    pstmt.setString(3, project.getReportPath());
+                    pstmt.setString(4, project.getExpectedOutputPath());
                     pstmt.executeUpdate();
                 }
-            }
 
-            // 4. Insert results
-            if (project.getResults() != null && !project.getResults().isEmpty()) {
-                String insertResult = "INSERT INTO results (project_name, student_id, status, details, grade) " +
-                        "VALUES (?, ?, ?, ?, ?);";
-                try (PreparedStatement pstmt = conn.prepareStatement(insertResult)) {
-                    for (StudentResult result : project.getResults()) {
-                        pstmt.setString(1, project.getName());
-                        pstmt.setString(2, result.getStudentId());
-                        pstmt.setString(3, result.getStatus().name());
-                        pstmt.setString(4, result.getDetails());
-                        pstmt.setInt(5, result.getGrade());
-                        pstmt.addBatch();
-                    }
-                    pstmt.executeBatch();
+                // 2. Delete existing configurations and results for the project (to overwrite
+                // cleanly)
+                String deleteConfigs = "DELETE FROM configurations WHERE project_name = ?;";
+                try (PreparedStatement pstmt = conn.prepareStatement(deleteConfigs)) {
+                    pstmt.setString(1, project.getName());
+                    pstmt.executeUpdate();
                 }
-            }
 
-            conn.commit();
+                String deleteResults = "DELETE FROM results WHERE project_name = ?;";
+                try (PreparedStatement pstmt = conn.prepareStatement(deleteResults)) {
+                    pstmt.setString(1, project.getName());
+                    pstmt.executeUpdate();
+                }
+
+                // 3. Insert configuration
+                if (project.getConfiguration() != null) {
+                    Configuration cfg = project.getConfiguration();
+                    String insertConfig = "INSERT INTO configurations (project_name, name, language, source_file_name, "
+                            +
+                            "compile_command, run_command, run_args, compiled) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+                    try (PreparedStatement pstmt = conn.prepareStatement(insertConfig)) {
+                        pstmt.setString(1, project.getName());
+                        pstmt.setString(2, cfg.getName());
+                        pstmt.setString(3, cfg.getLanguage());
+                        pstmt.setString(4, cfg.getSourceFileName());
+                        pstmt.setString(5, cfg.getCompileCommand());
+                        pstmt.setString(6, cfg.getRunCommand());
+                        pstmt.setString(7, RunArgsCodec.encode(cfg.getRunArgs()));
+                        pstmt.setInt(8, cfg.isCompiled() ? 1 : 0);
+                        pstmt.executeUpdate();
+                    }
+                }
+
+                // 4. Insert results
+                if (project.getResults() != null && !project.getResults().isEmpty()) {
+                    String insertResult = "INSERT INTO results (project_name, student_id, status, details, grade) " +
+                            "VALUES (?, ?, ?, ?, ?);";
+                    try (PreparedStatement pstmt = conn.prepareStatement(insertResult)) {
+                        for (StudentResult result : project.getResults()) {
+                            pstmt.setString(1, project.getName());
+                            pstmt.setString(2, result.getStudentId());
+                            pstmt.setString(3, result.getStatus().name());
+                            pstmt.setString(4, result.getDetails());
+                            pstmt.setInt(5, result.getGrade());
+                            pstmt.addBatch();
+                        }
+                        pstmt.executeBatch();
+                    }
+                }
+
+                conn.commit();
+            } catch (SQLException inner) {
+                conn.rollback();
+                throw inner;
+            }
         } catch (SQLException e) {
             throw new PersistenceException("Could not save project.", e);
         }
@@ -153,8 +161,7 @@ public class ProjectRepository {
                                     rs.getString("student_id"),
                                     status,
                                     rs.getString("details"),
-                                    grade
-                            );
+                                    grade);
                             results.add(result);
                         }
                     }
@@ -175,26 +182,31 @@ public class ProjectRepository {
 
         try (Connection conn = DatabaseHelper.getConnection()) {
             conn.setAutoCommit(false);
+            try {
 
-            try (PreparedStatement pstmt = conn.prepareStatement(
-                    "DELETE FROM configurations WHERE project_name = ?;")) {
-                pstmt.setString(1, projectName);
-                pstmt.executeUpdate();
+                try (PreparedStatement pstmt = conn.prepareStatement(
+                        "DELETE FROM configurations WHERE project_name = ?;")) {
+                    pstmt.setString(1, projectName);
+                    pstmt.executeUpdate();
+                }
+
+                try (PreparedStatement pstmt = conn.prepareStatement(
+                        "DELETE FROM results WHERE project_name = ?;")) {
+                    pstmt.setString(1, projectName);
+                    pstmt.executeUpdate();
+                }
+
+                try (PreparedStatement pstmt = conn.prepareStatement(
+                        "DELETE FROM projects WHERE name = ?;")) {
+                    pstmt.setString(1, projectName);
+                    pstmt.executeUpdate();
+                }
+
+                conn.commit();
+            } catch (SQLException inner) {
+                conn.rollback();
+                throw inner;
             }
-
-            try (PreparedStatement pstmt = conn.prepareStatement(
-                    "DELETE FROM results WHERE project_name = ?;")) {
-                pstmt.setString(1, projectName);
-                pstmt.executeUpdate();
-            }
-
-            try (PreparedStatement pstmt = conn.prepareStatement(
-                    "DELETE FROM projects WHERE name = ?;")) {
-                pstmt.setString(1, projectName);
-                pstmt.executeUpdate();
-            }
-
-            conn.commit();
         } catch (SQLException e) {
             throw new PersistenceException("Could not delete project.", e);
         }
@@ -204,8 +216,8 @@ public class ProjectRepository {
         List<String> names = new ArrayList<>();
         String query = "SELECT name FROM projects;";
         try (Connection conn = DatabaseHelper.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(query)) {
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery(query)) {
 
             while (rs.next()) {
                 names.add(rs.getString("name"));

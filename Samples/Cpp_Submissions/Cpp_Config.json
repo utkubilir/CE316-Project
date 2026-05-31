@@ -1,0 +1,9 @@
+{
+  "name": "C++ Custom Test Config",
+  "language": "C++",
+  "sourceFileName": "main.cpp",
+  "compileCommand": "g++ main.cpp -o main.exe",
+  "runCommand": "main.exe",
+  "runArgs": [],
+  "compiled": true
+}

@@ -12,24 +12,59 @@ public class Project {
     private String expectedOutputPath;
     private String reportPath;
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public String getName() {
+        return name;
+    }
 
-    public String getProjectFilePath() { return projectFilePath; }
-    public void setProjectFilePath(String projectFilePath) { this.projectFilePath = projectFilePath; }
+    public void setName(String name) {
+        this.name = name;
+    }
 
-    public String getSubmissionFolder() { return submissionFolder; }
-    public void setSubmissionFolder(String submissionFolder) { this.submissionFolder = submissionFolder; }
+    public String getProjectFilePath() {
+        return projectFilePath;
+    }
 
-    public Configuration getConfiguration() { return configuration; }
-    public void setConfiguration(Configuration configuration) { this.configuration = configuration; }
+    public void setProjectFilePath(String projectFilePath) {
+        this.projectFilePath = projectFilePath;
+    }
 
-    public List<StudentResult> getResults() { return results; }
-    public void setResults(List<StudentResult> results) { this.results = results != null ? results : new ArrayList<>(); }
+    public String getSubmissionFolder() {
+        return submissionFolder;
+    }
 
-    public String getExpectedOutputPath() { return expectedOutputPath; }
-    public void setExpectedOutputPath(String expectedOutputPath) { this.expectedOutputPath = expectedOutputPath; }
+    public void setSubmissionFolder(String submissionFolder) {
+        this.submissionFolder = submissionFolder;
+    }
 
-    public String getReportPath() { return reportPath; }
-    public void setReportPath(String reportPath) { this.reportPath = reportPath; }
+    public Configuration getConfiguration() {
+        return configuration;
+    }
+
+    public void setConfiguration(Configuration configuration) {
+        this.configuration = configuration;
+    }
+
+    public List<StudentResult> getResults() {
+        return results;
+    }
+
+    public void setResults(List<StudentResult> results) {
+        this.results = results != null ? results : new ArrayList<>();
+    }
+
+    public String getExpectedOutputPath() {
+        return expectedOutputPath;
+    }
+
+    public void setExpectedOutputPath(String expectedOutputPath) {
+        this.expectedOutputPath = expectedOutputPath;
+    }
+
+    public String getReportPath() {
+        return reportPath;
+    }
+
+    public void setReportPath(String reportPath) {
+        this.reportPath = reportPath;
+    }
 }

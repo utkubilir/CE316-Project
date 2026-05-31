@@ -10,6 +10,8 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -43,10 +45,13 @@ public class Main extends Application {
         initTask.setOnSucceeded(event -> finishStartup(primaryStage, splash));
         initTask.setOnFailed(event -> {
             Throwable ex = initTask.getException();
-            if (ex != null) {
-                ex.printStackTrace();
-            }
-            splash.closeWithFade(Platform::exit);
+            String message = (ex != null && ex.getMessage() != null)
+                    ? ex.getMessage()
+                    : "Unknown error during startup.";
+            splash.closeWithFade(() -> {
+                showFatalError(message);
+                Platform.exit();
+            });
         });
 
         Thread initThread = new Thread(initTask, "iae-init");
@@ -64,6 +69,11 @@ public class Main extends Application {
             scene.getStylesheets().add(getClass().getResource("/css/styles.css").toExternalForm());
 
             stage.setTitle("CE 316 - Assignment Grader");
+            try {
+                stage.getIcons()
+                        .add(new javafx.scene.image.Image(getClass().getResourceAsStream("/images/app-icon.png")));
+            } catch (Exception ignore) {
+            }
             stage.setScene(scene);
             stage.setMinWidth(880);
             stage.setMinHeight(560);
@@ -80,9 +90,19 @@ public class Main extends Application {
             hold.setOnFinished(evt -> splash.closeWithFade(stage::show));
             hold.play();
         } catch (Exception ex) {
-            ex.printStackTrace();
-            splash.closeWithFade(Platform::exit);
+            String message = ex.getMessage() != null ? ex.getMessage() : ex.toString();
+            splash.closeWithFade(() -> {
+                showFatalError(message);
+                Platform.exit();
+            });
         }
+    }
+
+    private void showFatalError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR, message, ButtonType.OK);
+        alert.setTitle("CE 316 IAE");
+        alert.setHeaderText("The application could not start.");
+        alert.showAndWait();
     }
 
     public static void main(String[] args) {

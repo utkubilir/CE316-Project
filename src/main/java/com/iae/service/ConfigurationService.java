@@ -5,6 +5,7 @@ import com.iae.repository.ConfigurationRepository;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -13,15 +14,18 @@ import java.util.stream.Collectors;
  *
  * Supports Requirement #4: create, edit and remove configurations.
  * Persistent storage is delegated to {@link ConfigurationRepository};
- * defaults for the supported languages are produced by {@link #createConfiguration}.
+ * defaults for the supported languages are produced by
+ * {@link #createConfiguration}.
  */
 public class ConfigurationService {
 
     private final ConfigurationRepository repository = new ConfigurationRepository();
 
     /**
-     * Build a Configuration pre-filled with reasonable defaults for the given language.
-     * Does NOT persist it - callers persist via {@link #saveConfiguration(Configuration)}.
+     * Build a Configuration pre-filled with reasonable defaults for the given
+     * language.
+     * Does NOT persist it - callers persist via
+     * {@link #saveConfiguration(Configuration)}.
      */
     public Configuration createConfiguration(String name, String language) {
 
@@ -35,13 +39,16 @@ public class ConfigurationService {
         return config;
     }
 
-    /** Re-apply default compile/run commands for a language onto an existing configuration. */
+    /**
+     * Re-apply default compile/run commands for a language onto an existing
+     * configuration.
+     */
     public void applyLanguageDefaults(Configuration config, String language) {
         if (config == null || language == null) {
             return;
         }
 
-        switch (language.toLowerCase()) {
+        switch (language.toLowerCase(Locale.ROOT)) {
 
             case "c" -> {
                 config.setSourceFileName("main.c");
@@ -126,9 +133,9 @@ public class ConfigurationService {
         if (!repository.findAllNames().isEmpty()) {
             return;
         }
-        repository.save(createConfiguration("C Configuration",      "C"));
-        repository.save(createConfiguration("C++ Configuration",    "C++"));
-        repository.save(createConfiguration("Java Configuration",   "Java"));
+        repository.save(createConfiguration("C Configuration", "C"));
+        repository.save(createConfiguration("C++ Configuration", "C++"));
+        repository.save(createConfiguration("Java Configuration", "Java"));
         repository.save(createConfiguration("Python Configuration", "Python"));
     }
 

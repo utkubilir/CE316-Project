@@ -37,7 +37,7 @@ class FileManagerTest {
 
         List<File> zips = fileManager.discoverZipFiles(tempDir.toFile());
         assertEquals(2, zips.size());
-        zips.forEach(f -> assertTrue(f.getName().toLowerCase().endsWith(".zip")));
+        zips.forEach(f -> assertTrue(f.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".zip")));
     }
 
     @Test

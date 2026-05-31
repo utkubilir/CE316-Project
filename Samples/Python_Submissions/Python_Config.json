@@ -1,0 +1,9 @@
+{
+  "name": "Python Custom Test Config",
+  "language": "Python",
+  "sourceFileName": "main.py",
+  "compileCommand": "",
+  "runCommand": "python main.py",
+  "runArgs": [],
+  "compiled": false
+}

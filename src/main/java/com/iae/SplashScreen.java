@@ -20,7 +20,7 @@ import javafx.util.Duration;
  */
 public class SplashScreen {
 
-    private static final double WIDTH  = 520;
+    private static final double WIDTH = 520;
     private static final double HEIGHT = 340;
 
     private final Stage stage;

@@ -17,7 +17,15 @@ public class SubmissionInfo {
         this.size = size;
     }
 
-    public String getFileName() { return fileName; }
-    public String getStudentId() { return studentId; }
-    public String getSize() { return size; }
+    public String getFileName() {
+        return fileName;
+    }
+
+    public String getStudentId() {
+        return studentId;
+    }
+
+    public String getSize() {
+        return size;
+    }
 }

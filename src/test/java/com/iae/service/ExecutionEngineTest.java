@@ -82,12 +82,12 @@ class ExecutionEngineTest {
 
         Files.writeString(tempDir.resolve("Main.java"),
                 "public class Main {" +
-                "  public static void main(String[] a){" +
-                "    StringBuilder b=new StringBuilder();" +
-                "    for(int i=0;i<a.length;i++){if(i>0)b.append(' ');b.append(a[i]);}" +
-                "    System.out.println(b);" +
-                "  }" +
-                "}\n");
+                        "  public static void main(String[] a){" +
+                        "    StringBuilder b=new StringBuilder();" +
+                        "    for(int i=0;i<a.length;i++){if(i>0)b.append(' ');b.append(a[i]);}" +
+                        "    System.out.println(b);" +
+                        "  }" +
+                        "}\n");
 
         StudentResult result = engine.evaluateSubmission(
                 "S002",
@@ -124,12 +124,15 @@ class ExecutionEngineTest {
 
     private static boolean isExecutableOnPath(String name) {
         String path = System.getenv("PATH");
-        if (path == null) return false;
+        if (path == null)
+            return false;
         for (String dir : path.split(File.pathSeparator)) {
             File f = new File(dir, name);
-            if (f.canExecute()) return true;
+            if (f.canExecute())
+                return true;
             File withExe = new File(dir, name + ".exe");
-            if (withExe.canExecute()) return true;
+            if (withExe.canExecute())
+                return true;
         }
         return false;
     }

@@ -13,7 +13,8 @@ public class StudentResult {
     private final StringProperty details = new SimpleStringProperty("");
     private final IntegerProperty grade = new SimpleIntegerProperty(0);
 
-    public StudentResult() {}
+    public StudentResult() {
+    }
 
     public StudentResult(String studentId, TestStatus status, String details) {
         // Derive the grade from the outcome (tiered scoring, see TestStatus#score).
@@ -27,19 +28,51 @@ public class StudentResult {
         this.grade.set(grade);
     }
 
-    public String getStudentId() { return studentId.get(); }
-    public void setStudentId(String v) { studentId.set(v); }
-    public StringProperty studentIdProperty() { return studentId; }
+    public String getStudentId() {
+        return studentId.get();
+    }
 
-    public TestStatus getStatus() { return status.get(); }
-    public void setStatus(TestStatus v) { status.set(v); }
-    public ObjectProperty<TestStatus> statusProperty() { return status; }
+    public void setStudentId(String v) {
+        studentId.set(v);
+    }
 
-    public String getDetails() { return details.get(); }
-    public void setDetails(String v) { details.set(v == null ? "" : v); }
-    public StringProperty detailsProperty() { return details; }
+    public StringProperty studentIdProperty() {
+        return studentId;
+    }
 
-    public int getGrade() { return grade.get(); }
-    public void setGrade(int v) { grade.set(v); }
-    public IntegerProperty gradeProperty() { return grade; }
+    public TestStatus getStatus() {
+        return status.get();
+    }
+
+    public void setStatus(TestStatus v) {
+        status.set(v);
+    }
+
+    public ObjectProperty<TestStatus> statusProperty() {
+        return status;
+    }
+
+    public String getDetails() {
+        return details.get();
+    }
+
+    public void setDetails(String v) {
+        details.set(v == null ? "" : v);
+    }
+
+    public StringProperty detailsProperty() {
+        return details;
+    }
+
+    public int getGrade() {
+        return grade.get();
+    }
+
+    public void setGrade(int v) {
+        grade.set(v);
+    }
+
+    public IntegerProperty gradeProperty() {
+        return grade;
+    }
 }

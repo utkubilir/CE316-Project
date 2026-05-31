@@ -1,5 +1,7 @@
 package com.iae.repository;
 
+import com.iae.util.AppPaths;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -7,17 +9,19 @@ import java.sql.Statement;
 
 public class DatabaseHelper {
 
-    private static final String DEFAULT_URL = "jdbc:sqlite:iae_projects.db";
     public static final String DATABASE_URL_PROPERTY = "iae.database.url";
 
     public static Connection getConnection() throws SQLException {
-        String url = System.getProperty(DATABASE_URL_PROPERTY, DEFAULT_URL);
+        String override = System.getProperty(DATABASE_URL_PROPERTY);
+        String url = (override != null && !override.isBlank())
+                ? override
+                : "jdbc:sqlite:" + AppPaths.databaseFile();
         return DriverManager.getConnection(url);
     }
 
     public static void initializeDatabase() {
         try (Connection conn = getConnection();
-             Statement stmt = conn.createStatement()) {
+                Statement stmt = conn.createStatement()) {
 
             // Create projects table
             String createProjectsTable = "CREATE TABLE IF NOT EXISTS projects (" +
@@ -28,7 +32,8 @@ public class DatabaseHelper {
                     ");";
             stmt.execute(createProjectsTable);
 
-            // Attempt to add expected_output_path column to existing projects table (migration)
+            // Attempt to add expected_output_path column to existing projects table
+            // (migration)
             try {
                 stmt.execute("ALTER TABLE projects ADD COLUMN expected_output_path TEXT;");
             } catch (SQLException ignore) {

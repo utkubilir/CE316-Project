@@ -39,7 +39,7 @@ public class ConfigurationRepository {
                 "compiled=excluded.compiled;";
 
         try (Connection conn = DatabaseHelper.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, cfg.getName());
             pstmt.setString(2, cfg.getLanguage());
             pstmt.setString(3, cfg.getSourceFileName());
@@ -56,7 +56,7 @@ public class ConfigurationRepository {
     public void delete(String name) {
         String sql = "DELETE FROM saved_configurations WHERE name = ?;";
         try (Connection conn = DatabaseHelper.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, name);
             pstmt.executeUpdate();
         } catch (SQLException e) {
@@ -67,7 +67,7 @@ public class ConfigurationRepository {
     public Configuration findByName(String name) {
         String sql = "SELECT * FROM saved_configurations WHERE name = ?;";
         try (Connection conn = DatabaseHelper.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, name);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -84,8 +84,8 @@ public class ConfigurationRepository {
         List<Configuration> out = new ArrayList<>();
         String sql = "SELECT * FROM saved_configurations ORDER BY name;";
         try (Connection conn = DatabaseHelper.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 out.add(readConfiguration(rs));
             }
@@ -99,8 +99,8 @@ public class ConfigurationRepository {
         List<String> names = new ArrayList<>();
         String sql = "SELECT name FROM saved_configurations ORDER BY name;";
         try (Connection conn = DatabaseHelper.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 names.add(rs.getString("name"));
             }

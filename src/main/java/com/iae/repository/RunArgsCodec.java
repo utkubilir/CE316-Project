@@ -10,9 +10,11 @@ import java.util.List;
 public final class RunArgsCodec {
 
     private static final Gson GSON = new Gson();
-    private static final Type LIST_TYPE = new TypeToken<List<String>>() {}.getType();
+    private static final Type LIST_TYPE = new TypeToken<List<String>>() {
+    }.getType();
 
-    private RunArgsCodec() {}
+    private RunArgsCodec() {
+    }
 
     public static String encode(List<String> args) {
         if (args == null || args.isEmpty()) {

@@ -4,6 +4,7 @@ import com.iae.model.StudentResult;
 import com.iae.model.TestStatus;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,15 +17,15 @@ import java.util.regex.Pattern;
  * working directory and compares the program's output to the expected
  * output (Requirements #7 and #8).
  *
- * <p>Every {@link StudentResult} produced here also carries a 0-100 grade
+ * <p>
+ * Every {@link StudentResult} produced here also carries a 0-100 grade
  * derived from its {@link TestStatus} (tiered scoring, see
  * {@link TestStatus#score()}): a clean pass scores 100, an output mismatch
  * earns partial credit, and error / missing-source outcomes score lower.
  */
 public class ExecutionEngine {
 
-    private static final Pattern TOKEN_PATTERN =
-            Pattern.compile("\"([^\"]*)\"|(\\S+)");
+    private static final Pattern TOKEN_PATTERN = Pattern.compile("\"([^\"]*)\"|(\\S+)");
 
     public String compile(File workingDirectory, String compileCommand) {
 
@@ -43,8 +44,18 @@ public class ExecutionEngine {
             pb.redirectOutput(tempOut);
 
             Process process = pb.start();
-            int exitCode = process.waitFor();
-            String output = Files.readString(tempOut.toPath());
+
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            if (!finished) {
+                process.descendants().forEach(ProcessHandle::destroyForcibly);
+                process.destroyForcibly();
+                process.waitFor();
+                tempOut.delete();
+                return "Compilation timed out.";
+            }
+
+            int exitCode = process.exitValue();
+            String output = Files.readString(tempOut.toPath(), StandardCharsets.UTF_8);
             tempOut.delete();
 
             if (exitCode == 0) {
@@ -98,7 +109,7 @@ public class ExecutionEngine {
             }
 
             int exitCode = process.exitValue();
-            String output = Files.readString(tempOut.toPath());
+            String output = Files.readString(tempOut.toPath(), StandardCharsets.UTF_8);
             tempOut.delete();
 
             if (exitCode != 0) {
@@ -121,8 +132,7 @@ public class ExecutionEngine {
             File workingDirectory,
             String compileCommand,
             String runCommand,
-            String expectedOutput
-    ) {
+            String expectedOutput) {
         return evaluateSubmission(studentId, workingDirectory, compileCommand, runCommand, List.of(), expectedOutput);
     }
 
@@ -132,8 +142,7 @@ public class ExecutionEngine {
             String compileCommand,
             String runCommand,
             List<String> runArgs,
-            String expectedOutput
-    ) {
+            String expectedOutput) {
 
         String compileResult = compile(workingDirectory, compileCommand);
 
@@ -164,7 +173,8 @@ public class ExecutionEngine {
     /** Splits a command string respecting double-quoted arguments. */
     public static List<String> tokenize(String cmd) {
         List<String> tokens = new ArrayList<>();
-        if (cmd == null) return tokens;
+        if (cmd == null)
+            return tokens;
         Matcher m = TOKEN_PATTERN.matcher(cmd);
         while (m.find()) {
             tokens.add(m.group(1) != null ? m.group(1) : m.group(2));
@@ -205,17 +215,17 @@ public class ExecutionEngine {
                 tokens.set(0, s.getAbsolutePath());
             } else {
                 File se = new File(workingDirectory, stripped + ".exe");
-                if (se.isFile()) tokens.set(0, se.getAbsolutePath());
+                if (se.isFile())
+                    tokens.set(0, se.getAbsolutePath());
             }
         }
 
         return tokens;
     }
 
-
-
     private String normalizeOutput(String text) {
-        if (text == null) return "";
+        if (text == null)
+            return "";
         return text
                 .replace("\r\n", "\n")
                 .replace("\r", "\n")

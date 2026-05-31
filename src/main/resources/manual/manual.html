@@ -1,217 +1,440 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<title>CE316 IAE — User Manual</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-         margin: 24px; color: #1f2937; line-height: 1.5; }
-  h1 { margin-bottom: 4px; }
-  .subtitle { color: #6b7280; margin-bottom: 24px; }
-  h2 { border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; margin-top: 32px; }
-  h3 { margin-top: 22px; }
-  code, kbd { background: #f3f4f6; padding: 1px 6px; border-radius: 4px;
-              font-size: 0.9em; font-family: "SF Mono", Menlo, Consolas, monospace; }
-  pre { background: #f3f4f6; padding: 10px; border-radius: 6px; overflow-x: auto;
-        font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 0.85em; }
-  table { border-collapse: collapse; margin: 12px 0; }
-  th, td { padding: 6px 12px; border: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
-  th { background: #f9fafb; }
-  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px;
-          font-size: 0.85em; font-weight: 600; }
-  .passed { background: #dcfce7; color: #14532d; }
-  .failed { background: #fee2e2; color: #7f1d1d; }
-  .compile { background: #fef3c7; color: #78350f; }
-  .runtime { background: #fee2e2; color: #7f1d1d; }
-  .timeout { background: #ede9fe; color: #4c1d95; }
-  .mismatch { background: #fee2e2; color: #7f1d1d; }
-  .missing, .extraction { background: #e5e7eb; color: #1f2937; }
-  ul, ol { padding-left: 22px; }
-  .note { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 10px 14px;
-          border-radius: 4px; margin: 12px 0; }
-  .warn { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 10px 14px;
-          border-radius: 4px; margin: 12px 0; font-style: italic; color: #92400e; }
-  .g-high { color: #15803d; font-weight: 700; }
-  .g-mid  { color: #b45309; font-weight: 700; }
-  .g-low  { color: #b91c1c; font-weight: 700; }
-</style>
+  <meta charset="UTF-8">
+  <title>CE316 IAE — User Manual</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 24px;
+      color: #1f2937;
+      line-height: 1.5;
+    }
+
+    h1 {
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+
+    h2 {
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 4px;
+      margin-top: 32px;
+    }
+
+    h3 {
+      margin-top: 22px;
+    }
+
+    code,
+    kbd {
+      background: #f3f4f6;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    pre {
+      background: #f3f4f6;
+      padding: 10px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.85em;
+    }
+
+    table {
+      border-collapse: collapse;
+      margin: 12px 0;
+    }
+
+    th,
+    td {
+      padding: 6px 12px;
+      border: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f9fafb;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.85em;
+      font-weight: 600;
+    }
+
+    .passed {
+      background: #dcfce7;
+      color: #14532d;
+    }
+
+    .failed {
+      background: #fee2e2;
+      color: #7f1d1d;
+    }
+
+    .compile {
+      background: #fef3c7;
+      color: #78350f;
+    }
+
+    .runtime {
+      background: #fee2e2;
+      color: #7f1d1d;
+    }
+
+    .timeout {
+      background: #ede9fe;
+      color: #4c1d95;
+    }
+
+    .mismatch {
+      background: #fee2e2;
+      color: #7f1d1d;
+    }
+
+    .missing,
+    .extraction {
+      background: #e5e7eb;
+      color: #1f2937;
+    }
+
+    ul,
+    ol {
+      padding-left: 22px;
+    }
+
+    .note {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 10px 14px;
+      border-radius: 4px;
+      margin: 12px 0;
+    }
+
+    .warn {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 10px 14px;
+      border-radius: 4px;
+      margin: 12px 0;
+      font-style: italic;
+      color: #92400e;
+    }
+
+    .g-high {
+      color: #15803d;
+      font-weight: 700;
+    }
+
+    .g-mid {
+      color: #b45309;
+      font-weight: 700;
+    }
+
+    .g-low {
+      color: #b91c1c;
+      font-weight: 700;
+    }
+  </style>
 </head>
+
 <body>
 
-<h1>CE316 Integrated Assignment Environment</h1>
-<div class="subtitle">Lightweight lecturer-side grading tool for ZIPped student submissions.</div>
+  <h1>CE316 Integrated Assignment Environment</h1>
+  <div class="subtitle">Lightweight lecturer-side grading tool for ZIPped student submissions.</div>
 
-<h2>Overview</h2>
-<p>The IAE compiles, runs, and grades a folder of student ZIP files against a single expected
-output. It supports compiled languages (C, C++, Java) and interpreted ones (Python). All project
-data is stored locally in <code>iae_projects.db</code>; no server is required.</p>
-<p>Every submission also receives a <b>0–100 grade</b> derived from its result, and you can
-<b>view and even edit a student's source code</b> directly inside the app (see
-<a href="#code-editor">Viewing &amp; Editing Source Code</a>). Exported HTML reports are fully
-self-contained and open correctly with <b>no internet connection</b>.</p>
+  <h2>Overview</h2>
+  <p>The IAE compiles, runs, and grades a folder of student ZIP files against a single expected
+    output. It supports compiled languages (C, C++, Java) and interpreted ones (Python). All project
+    data is stored locally in <code>iae_projects.db</code>; no server is required.</p>
+  <p>Every submission also receives a <b>0–100 grade</b> derived from its result, and you can
+    <b>view and even edit a student's source code</b> directly inside the app (see
+    <a href="#code-editor">Viewing &amp; Editing Source Code</a>). Exported HTML reports are fully
+    self-contained and open correctly with <b>no internet connection</b>.
+  </p>
 
-<h2>The Interface</h2>
-<ul>
-  <li><b>Sidebar (left)</b> — project actions, submission folder, expected output file, and the
-      <b>Run Tests</b> button. Buttons carry icons for quick recognition.</li>
-  <li><b>Center tabs</b> — Configuration, Student Submissions, and Expected Output.</li>
-  <li><b>Results pane (below the tabs)</b> — the per-student results table. The horizontal
+  <h2>The Interface</h2>
+  <ul>
+    <li><b>Sidebar (left)</b> — project actions, submission folder, expected output file, and the
+      <b>Run Tests</b> button. Buttons carry icons for quick recognition.
+    </li>
+    <li><b>Center tabs</b> — Configuration, Student Submissions, and Expected Output.</li>
+    <li><b>Results pane (below the tabs)</b> — the per-student results table. The horizontal
       <b>divider between the tabs and the results can be dragged</b> up or down to give either area
-      more room.</li>
-  <li><b>Context bar (top)</b> — shows the active project, configuration, submission count, and last
+      more room.
+    </li>
+    <li><b>Context bar (top)</b> — shows the active project, configuration, submission count, and last
       run. A dedicated <b>Exit</b> button sits on its far right (the same action as
-      <b>File → Exit</b>); both prompt to save any unsaved changes before closing.</li>
-</ul>
+      <b>File → Exit</b>); both prompt to save any unsaved changes before closing.
+    </li>
+  </ul>
 
-<h2>Quick Start</h2>
-<ol>
-  <li><b>File → New Project</b>, enter a name, choose or create a configuration.</li>
-  <li>Pick the folder containing student ZIP files (sidebar <b>Browse...</b>).</li>
-  <li>Pick the expected output file.</li>
-  <li>Click <b>Run Tests</b>.</li>
-  <li>Inspect the results table — each student gets a status and a <b>0–100 grade</b>; export an
+  <h2>Quick Start</h2>
+  <ol>
+    <li><b>File → New Project</b>, enter a name, choose or create a configuration.</li>
+    <li>Pick the folder containing student ZIP files (sidebar <b>Browse...</b>).</li>
+    <li>Pick the expected output file.</li>
+    <li>Click <b>Run Tests</b>.</li>
+    <li>Inspect the results table — each student gets a status and a <b>0–100 grade</b>; export an
       HTML report via <b>File → Export Report</b>.</li>
-</ol>
+  </ol>
 
-<h2>Projects</h2>
-<ul>
-  <li><b>New Project</b> — starts a fresh evaluation session. Asks for a name and configuration.</li>
-  <li><b>Open Project</b> — reloads a saved project including its results.</li>
-  <li><b>Save Project</b> — persists name, configuration, submission folder, expected output path,
+  <h2>Projects</h2>
+  <ul>
+    <li><b>New Project</b> — starts a fresh evaluation session. Asks for a name and configuration.</li>
+    <li><b>Open Project</b> — reloads a saved project including its results.</li>
+    <li><b>Save Project</b> — persists name, configuration, submission folder, expected output path,
       and the latest results into SQLite.</li>
-  <li><b>Delete Project</b> — removes the project and its saved results.</li>
-</ul>
+    <li><b>Delete Project</b> — removes the project and its saved results.</li>
+  </ul>
 
-<h2>Configurations</h2>
-<p>A configuration describes how to compile and run a particular language. The fields are:</p>
-<table>
-  <tr><th>Field</th><th>Description</th></tr>
-  <tr><td>Name</td><td>Unique identifier (e.g. <code>C Configuration</code>).</td></tr>
-  <tr><td>Language</td><td>Used as a hint and label (e.g. <code>C</code>, <code>Java</code>).</td></tr>
-  <tr><td>Source File</td><td>Filename the IAE looks for inside the extracted ZIP.</td></tr>
-  <tr><td>Compile Command</td><td>Shell command run before the program. Leave blank for interpreted languages.</td></tr>
-  <tr><td>Run Command</td><td>How to invoke the compiled or interpreted program.</td></tr>
-  <tr><td>Run Args</td><td>Command-line arguments appended after the run command. Quoted strings stay together (e.g. <code>apple "banana split"</code>).</td></tr>
-</table>
+  <h2>Configurations</h2>
+  <p>A configuration describes how to compile and run a particular language. The fields are:</p>
+  <table>
+    <tr>
+      <th>Field</th>
+      <th>Description</th>
+    </tr>
+    <tr>
+      <td>Name</td>
+      <td>Unique identifier (e.g. <code>C Configuration</code>).</td>
+    </tr>
+    <tr>
+      <td>Language</td>
+      <td>Used as a hint and label (e.g. <code>C</code>, <code>Java</code>).</td>
+    </tr>
+    <tr>
+      <td>Source File</td>
+      <td>Filename the IAE looks for inside the extracted ZIP.</td>
+    </tr>
+    <tr>
+      <td>Compile Command</td>
+      <td>Shell command run before the program. Leave blank for interpreted languages.</td>
+    </tr>
+    <tr>
+      <td>Run Command</td>
+      <td>How to invoke the compiled or interpreted program.</td>
+    </tr>
+    <tr>
+      <td>Run Args</td>
+      <td>Command-line arguments appended after the run command. Quoted strings stay together (e.g.
+        <code>apple "banana split"</code>).
+      </td>
+    </tr>
+  </table>
 
-<h3>Built-in Defaults</h3>
-<table>
-  <tr><th>Language</th><th>Source</th><th>Compile</th><th>Run</th></tr>
-  <tr><td>C</td><td><code>main.c</code></td><td><code>gcc main.c -o main.exe</code></td><td><code>main.exe</code></td></tr>
-  <tr><td>C++</td><td><code>main.cpp</code></td><td><code>g++ main.cpp -o main.exe</code></td><td><code>main.exe</code></td></tr>
-  <tr><td>Java</td><td><code>Main.java</code></td><td><code>javac Main.java</code></td><td><code>java Main</code></td></tr>
-  <tr><td>Python</td><td><code>main.py</code></td><td>(empty)</td><td><code>python main.py</code></td></tr>
-</table>
+  <h3>Built-in Defaults</h3>
+  <table>
+    <tr>
+      <th>Language</th>
+      <th>Source</th>
+      <th>Compile</th>
+      <th>Run</th>
+    </tr>
+    <tr>
+      <td>C</td>
+      <td><code>main.c</code></td>
+      <td><code>gcc main.c -o main.exe</code></td>
+      <td><code>main.exe</code></td>
+    </tr>
+    <tr>
+      <td>C++</td>
+      <td><code>main.cpp</code></td>
+      <td><code>g++ main.cpp -o main.exe</code></td>
+      <td><code>main.exe</code></td>
+    </tr>
+    <tr>
+      <td>Java</td>
+      <td><code>Main.java</code></td>
+      <td><code>javac Main.java</code></td>
+      <td><code>java Main</code></td>
+    </tr>
+    <tr>
+      <td>Python</td>
+      <td><code>main.py</code></td>
+      <td>(empty)</td>
+      <td><code>python main.py</code></td>
+    </tr>
+  </table>
 
-<h3>Manage Configurations</h3>
-<p>Open <b>Configuration → Manage Configurations...</b> to create, edit, delete, or export saved
-configurations. <b>Export</b> writes the selected configuration to JSON. <b>Export All</b> bundles every
-saved configuration into one JSON array — perfect for sharing or backing up.</p>
+  <h3>Manage Configurations</h3>
+  <p>Open <b>Configuration → Manage Configurations...</b> to create, edit, delete, or export saved
+    configurations. <b>Export</b> writes the selected configuration to JSON. <b>Export All</b> bundles every
+    saved configuration into one JSON array — perfect for sharing or backing up.</p>
 
-<h3>Import &amp; Export</h3>
-<p><b>File → Import Configuration(s)</b> accepts either a single configuration JSON file
-or a JSON array; all imported entries are saved. <b>File → Export Current Form to JSON</b>
-exports whatever is currently entered in the Configuration tab (useful before saving).</p>
+  <h3>Import &amp; Export</h3>
+  <p><b>File → Import Configuration(s)</b> accepts either a single configuration JSON file
+    or a JSON array; all imported entries are saved. <b>File → Export Current Form to JSON</b>
+    exports whatever is currently entered in the Configuration tab (useful before saving).</p>
 
-<h2>Student Submissions</h2>
-<ul>
-  <li>Each student must submit a single <code>.zip</code> file. The ZIP filename (without extension) is treated as the student ID.</li>
-  <li>Inside the ZIP, the source file may sit at the top level or in a nested folder — the IAE searches recursively for the configured source file name (case-insensitive).</li>
-  <li>Use the sidebar <b>Browse...</b> button to pick the folder, then <b>Scan</b> (or auto-scan on selection) to preview the discovered ZIPs.</li>
-</ul>
+  <h2>Student Submissions</h2>
+  <ul>
+    <li>Each student must submit a single <code>.zip</code> file. The ZIP filename (without extension) is treated as the
+      student ID.</li>
+    <li>Inside the ZIP, the source file may sit at the top level or in a nested folder — the IAE searches recursively
+      for the configured source file name (case-insensitive).</li>
+    <li>Use the sidebar <b>Browse...</b> button to pick the folder, then <b>Scan</b> (or auto-scan on selection) to
+      preview the discovered ZIPs.</li>
+  </ul>
 
-<div class="note">
-  Files are extracted into a temporary <code>working_directory/</code> at the application root,
-  cleaned up automatically at the start of each run.
-</div>
+  <div class="note">
+    Files are extracted into a temporary <code>working_directory/</code> under <code>%APPDATA%\CE316-IAE</code>,
+    cleaned up automatically at the start of each run.
+  </div>
 
-<h2>Expected Output</h2>
-<ul>
-  <li>Provide a <code>.txt</code> or <code>.out</code> file containing the program's expected stdout.</li>
-  <li>The <b>Expected Output</b> tab loads the file's contents into an editor where it can be tweaked and saved back.</li>
-  <li>Output comparison is whitespace-normalized: CRLF/LF differences, leading/trailing whitespace, and runs of spaces or blank lines are collapsed before comparison.</li>
-</ul>
+  <h2>Expected Output</h2>
+  <ul>
+    <li>Provide a <code>.txt</code> or <code>.out</code> file containing the program's expected stdout.</li>
+    <li>The <b>Expected Output</b> tab loads the file's contents into an editor where it can be tweaked and saved back.
+    </li>
+    <li>Output comparison is whitespace-normalized: CRLF/LF differences, leading/trailing whitespace, and runs of spaces
+      or blank lines are collapsed before comparison.</li>
+  </ul>
 
-<h2>Running Tests</h2>
-<ul>
-  <li>Click <b>Run Tests</b> in the sidebar. The progress bar and status bar update per submission.</li>
-  <li>Each student program is killed after <b>10 seconds</b> to prevent infinite loops; the result is recorded as <span class="pill timeout">Timeout</span>.</li>
-  <li><b>Cancel Run</b> stops processing after the current submission finishes.</li>
-</ul>
+  <h2>Running Tests</h2>
+  <ul>
+    <li>Click <b>Run Tests</b> in the sidebar. The progress bar and status bar update per submission.</li>
+    <li>Each student program is killed after <b>10 seconds</b> to prevent infinite loops; the result is recorded as
+      <span class="pill timeout">Timeout</span>.
+    </li>
+    <li><b>Cancel Run</b> stops processing after the current submission finishes.</li>
+  </ul>
 
-<h2>Reading Results</h2>
-<p>The results table shows one row per student with a colored status pill:</p>
-<table>
-  <tr><th>Pill</th><th>Meaning</th></tr>
-  <tr><td><span class="pill passed">Passed</span></td><td>Output matches the expected output.</td></tr>
-  <tr><td><span class="pill mismatch">Output Mismatch</span></td><td>Program ran successfully but output differs.</td></tr>
-  <tr><td><span class="pill compile">Compile Error</span></td><td>Compile command failed; compiler output captured in details.</td></tr>
-  <tr><td><span class="pill runtime">Runtime Error</span></td><td>Program returned non-zero exit code.</td></tr>
-  <tr><td><span class="pill timeout">Timeout</span></td><td>Program exceeded the 10-second budget.</td></tr>
-  <tr><td><span class="pill missing">Missing Source</span></td><td>Configured source file was not found in the ZIP.</td></tr>
-  <tr><td><span class="pill extraction">Extraction Error</span></td><td>ZIP could not be opened (corrupted, password-protected).</td></tr>
-</table>
-<p>Use the <b>Filter</b> dropdown above the table to narrow by status. The summary line above the
-table reports totals plus the <b>average grade</b> of the shown rows.</p>
+  <h2>Reading Results</h2>
+  <p>The results table shows one row per student with a colored status pill:</p>
+  <table>
+    <tr>
+      <th>Pill</th>
+      <th>Meaning</th>
+    </tr>
+    <tr>
+      <td><span class="pill passed">Passed</span></td>
+      <td>Output matches the expected output.</td>
+    </tr>
+    <tr>
+      <td><span class="pill mismatch">Output Mismatch</span></td>
+      <td>Program ran successfully but output differs.</td>
+    </tr>
+    <tr>
+      <td><span class="pill compile">Compile Error</span></td>
+      <td>Compile command failed; compiler output captured in details.</td>
+    </tr>
+    <tr>
+      <td><span class="pill runtime">Runtime Error</span></td>
+      <td>Program returned non-zero exit code.</td>
+    </tr>
+    <tr>
+      <td><span class="pill timeout">Timeout</span></td>
+      <td>Program exceeded the 10-second budget.</td>
+    </tr>
+    <tr>
+      <td><span class="pill missing">Missing Source</span></td>
+      <td>Configured source file was not found in the ZIP.</td>
+    </tr>
+    <tr>
+      <td><span class="pill extraction">Extraction Error</span></td>
+      <td>ZIP could not be opened (corrupted, password-protected).</td>
+    </tr>
+  </table>
+  <p>Use the <b>Filter</b> dropdown above the table to narrow by status. The summary line above the
+    table reports totals plus the <b>average grade</b> of the shown rows.</p>
 
-<h3>Grades</h3>
-<p>Alongside the status, every student gets a <b>0–100 grade</b> in the <b>Grade</b> column. Because
-the engine runs a single test per student, the grade is tiered by outcome:</p>
-<table>
-  <tr><th>Status</th><th>Grade</th></tr>
-  <tr><td><span class="pill passed">Passed</span></td><td><span class="g-high">100</span></td></tr>
-  <tr><td><span class="pill mismatch">Output Mismatch</span></td><td><span class="g-mid">50</span></td></tr>
-  <tr><td><span class="pill runtime">Runtime Error</span></td><td><span class="g-low">25</span></td></tr>
-  <tr><td><span class="pill timeout">Timeout</span></td><td><span class="g-low">20</span></td></tr>
-  <tr><td><span class="pill compile">Compile Error</span></td><td><span class="g-low">10</span></td></tr>
-  <tr><td><span class="pill missing">Missing Source</span> / <span class="pill extraction">Extraction Error</span></td><td><span class="g-low">0</span></td></tr>
-</table>
+  <h3>Grades</h3>
+  <p>Alongside the status, every student gets a <b>0–100 grade</b> in the <b>Grade</b> column. Because
+    the engine runs a single test per student, the grade is tiered by outcome:</p>
+  <table>
+    <tr>
+      <th>Status</th>
+      <th>Grade</th>
+    </tr>
+    <tr>
+      <td><span class="pill passed">Passed</span></td>
+      <td><span class="g-high">100</span></td>
+    </tr>
+    <tr>
+      <td><span class="pill mismatch">Output Mismatch</span></td>
+      <td><span class="g-mid">50</span></td>
+    </tr>
+    <tr>
+      <td><span class="pill runtime">Runtime Error</span></td>
+      <td><span class="g-low">25</span></td>
+    </tr>
+    <tr>
+      <td><span class="pill timeout">Timeout</span></td>
+      <td><span class="g-low">20</span></td>
+    </tr>
+    <tr>
+      <td><span class="pill compile">Compile Error</span></td>
+      <td><span class="g-low">10</span></td>
+    </tr>
+    <tr>
+      <td><span class="pill missing">Missing Source</span> / <span class="pill extraction">Extraction Error</span></td>
+      <td><span class="g-low">0</span></td>
+    </tr>
+  </table>
 
-<p>Double-click a row (or hit the <b>Details</b> button) to open the result dialog, which has two
-tabs: <b>Details</b> (the full compiler/runtime output for that student) and <b>Source Code</b>
-(the student's source, which you can read and edit — see below).</p>
+  <p>Double-click a row (or hit the <b>Details</b> button) to open the result dialog, which has two
+    tabs: <b>Details</b> (the full compiler/runtime output for that student) and <b>Source Code</b>
+    (the student's source, which you can read and edit — see below).</p>
 
-<h2 id="code-editor">Viewing &amp; Editing Source Code</h2>
-<p>The result dialog's <b>Source Code</b> tab shows the student's submitted source in a monospaced
-editor. It is located automatically from the extracted files in <code>working_directory/</code>
-using the configuration's source file name.</p>
-<ul>
-  <li>The code is <b>editable</b> — fix a typo or small bug right in the editor.</li>
-  <li>Click <b>Save &amp; Re-evaluate</b> to write your changes back to the extracted file and
+  <h2 id="code-editor">Viewing &amp; Editing Source Code</h2>
+  <p>The result dialog's <b>Source Code</b> tab shows the student's submitted source in a monospaced
+    editor. It is located automatically from the extracted files in <code>working_directory/</code>
+    using the configuration's source file name.</p>
+  <ul>
+    <li>The code is <b>editable</b> — fix a typo or small bug right in the editor.</li>
+    <li>Click <b>Save &amp; Re-evaluate</b> to write your changes back to the extracted file and
       immediately re-compile and run <i>only that student</i>. Their status and grade update on the
       spot, using the current configuration and expected output.</li>
-</ul>
-<div class="warn">
-  Edits made here only apply to the current session. The original student ZIP submission is never
-  modified. A later full <b>Run Tests</b> re-extracts the original ZIPs, so it reverts to the
-  unedited code. Source is only available for students evaluated in the current session.
-</div>
+  </ul>
+  <div class="warn">
+    Edits made here only apply to the current session. The original student ZIP submission is never
+    modified. A later full <b>Run Tests</b> re-extracts the original ZIPs, so it reverts to the
+    unedited code. Source is only available for students evaluated in the current session.
+  </div>
 
-<h2>Exporting Reports</h2>
-<p><b>File → Export Report</b> (or the button above the results table) writes a self-contained
-HTML report with: project context, configuration, summary counts (including the <b>average
-grade</b>), and per-student rows showing each student's <b>grade</b> and full compiler/runtime
-output. The path is remembered on the project so the next export defaults to the same folder.</p>
-<div class="note">
-  The report is fully self-contained: all styling is embedded and only local fonts are used — no
-  external stylesheets, web fonts, or scripts. It opens correctly in any browser
-  <b>completely offline</b>.
-</div>
+  <h2>Exporting Reports</h2>
+  <p><b>File → Export Report</b> (or the button above the results table) writes a self-contained
+    HTML report with: project context, configuration, summary counts (including the <b>average
+      grade</b>), and per-student rows showing each student's <b>grade</b> and full compiler/runtime
+    output. The path is remembered on the project so the next export defaults to the same folder.</p>
+  <div class="note">
+    The report is fully self-contained: all styling is embedded and only local fonts are used — no
+    external stylesheets, web fonts, or scripts. It opens correctly in any browser
+    <b>completely offline</b>.
+  </div>
 
-<h2>Supported Languages</h2>
-<p>The four built-in defaults (C, C++, Java, Python) are seeded on first launch. Any other
-language can be supported by creating a custom configuration — the IAE only needs the compile
-and run commands; the rest of the toolchain (gcc, javac, python, etc.) is invoked through the
-OS.</p>
+  <h2>Supported Languages</h2>
+  <p>The four built-in defaults (C, C++, Java, Python) are seeded on first launch. Any other
+    language can be supported by creating a custom configuration — the IAE only needs the compile
+    and run commands; the rest of the toolchain (gcc, javac, python, etc.) is invoked through the
+    OS.</p>
 
-<h2>Troubleshooting</h2>
-<ul>
-  <li><b>"Source file not found"</b> — verify the source file name matches the ZIP contents exactly (case-insensitive). The IAE searches recursively.</li>
-  <li><b>"Compile Error" pill</b> — open Details; the compiler's stdout/stderr is captured verbatim.</li>
-  <li><b>Timeout</b> — increase the program's efficiency or ensure no <code>scanf</code> is blocking; the IAE always passes through stdin via the run args, not stdin.</li>
-  <li><b>Mismatch on whitespace only</b> — confirm the expected output file has no trailing blank lines; the IAE trims and normalizes whitespace before comparing.</li>
-  <li><b>"Extraction Error"</b> — re-zip the submission with a standard tool; password-protected ZIPs are unsupported.</li>
-</ul>
+  <h2>Troubleshooting</h2>
+  <ul>
+    <li><b>"Source file not found"</b> — verify the source file name matches the ZIP contents exactly
+      (case-insensitive). The IAE searches recursively.</li>
+    <li><b>"Compile Error" pill</b> — open Details; the compiler's stdout/stderr is captured verbatim.</li>
+    <li><b>Timeout</b> — increase the program's efficiency or ensure no <code>scanf</code> is blocking; the IAE always
+      passes through stdin via the run args, not stdin.</li>
+    <li><b>Mismatch on whitespace only</b> — confirm the expected output file has no trailing blank lines; the IAE trims
+      and normalizes whitespace before comparing.</li>
+    <li><b>"Extraction Error"</b> — re-zip the submission with a standard tool; password-protected ZIPs are unsupported.
+    </li>
+  </ul>
 
 </body>
+
 </html>

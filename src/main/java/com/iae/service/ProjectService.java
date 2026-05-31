@@ -5,6 +5,7 @@ import com.iae.model.StudentResult;
 
 import com.iae.model.Project;
 import com.iae.repository.ProjectRepository;
+import com.iae.util.AppPaths;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -13,14 +14,12 @@ import java.util.function.BooleanSupplier;
 
 public class ProjectService {
 
-    private final FileManager fileManager =
-            new FileManager();
+    private final FileManager fileManager = new FileManager();
 
-    private final ExecutionEngine executionEngine =
-            new ExecutionEngine();
+    private final ExecutionEngine executionEngine = new ExecutionEngine();
 
     private final ProjectRepository projectRepository = new ProjectRepository();
-    
+
     private Project currentProject;
 
     public void saveProject(Project project) {
@@ -52,14 +51,14 @@ public class ProjectService {
 
     public interface EvaluationProgress {
         void onSubmissionStarted(String studentId, int completed, int total);
+
         void onSubmissionFinished(StudentResult result, int completed, int total);
     }
 
     public List<StudentResult> runEvaluation(
             File submissionsFolder,
             Configuration configuration,
-            String expectedOutput
-    ) {
+            String expectedOutput) {
         return runEvaluation(submissionsFolder, configuration, expectedOutput, null, () -> false);
     }
 
@@ -68,17 +67,13 @@ public class ProjectService {
             Configuration configuration,
             String expectedOutput,
             EvaluationProgress progress,
-            BooleanSupplier cancelled
-    ) {
+            BooleanSupplier cancelled) {
 
-        List<StudentResult> results =
-                new ArrayList<>();
+        List<StudentResult> results = new ArrayList<>();
 
-        List<File> zipFiles =
-                fileManager.discoverZipFiles(submissionsFolder);
+        List<File> zipFiles = fileManager.discoverZipFiles(submissionsFolder);
 
-        File workingDirectory =
-                new File("working_directory");
+        File workingDirectory = AppPaths.workingDir();
 
         if (workingDirectory.exists()) {
             deleteDirectory(workingDirectory);
@@ -100,20 +95,15 @@ public class ProjectService {
 
             try {
 
-                File studentFolder =
-                        fileManager.extractZip(
-                                zipFile,
-                                workingDirectory
-                        );
+                File studentFolder = fileManager.extractZip(
+                        zipFile,
+                        workingDirectory);
 
-                String studentId =
-                        studentFolder.getName();
+                String studentId = studentFolder.getName();
 
-                File sourceFile =
-                        fileManager.findSourceFile(
-                                studentFolder,
-                                configuration.getSourceFileName()
-                        );
+                File sourceFile = fileManager.findSourceFile(
+                        studentFolder,
+                        configuration.getSourceFileName());
 
                 if (sourceFile == null) {
 
@@ -130,15 +120,13 @@ public class ProjectService {
                     continue;
                 }
 
-                StudentResult result =
-                        executionEngine.evaluateSubmission(
-                                studentId,
-                                sourceFile.getParentFile(),
-                                configuration.getCompileCommand(),
-                                configuration.getRunCommand(),
-                                configuration.getRunArgs(),
-                                expectedOutput
-                        );
+                StudentResult result = executionEngine.evaluateSubmission(
+                        studentId,
+                        sourceFile.getParentFile(),
+                        configuration.getCompileCommand(),
+                        configuration.getRunCommand(),
+                        configuration.getRunArgs(),
+                        expectedOutput);
 
                 results.add(result);
                 completed++;
@@ -165,7 +153,8 @@ public class ProjectService {
 
     private String studentIdFromZip(File zipFile) {
         String fileName = zipFile.getName();
-        return fileName.substring(0, fileName.lastIndexOf("."));
+        int dotIndex = fileName.lastIndexOf(".");
+        return dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
     }
 
     private void deleteDirectory(File dir) {

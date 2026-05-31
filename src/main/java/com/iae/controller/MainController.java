@@ -1,5 +1,7 @@
 package com.iae.controller;
 
+import com.iae.util.AppPaths;
+
 import com.iae.model.Configuration;
 import com.iae.model.StudentResult;
 import com.iae.model.SubmissionInfo;
@@ -73,77 +75,132 @@ public class MainController {
             "status-timeout",
             "status-mismatch",
             "status-missing",
-            "status-pending"
-    );
+            "status-pending");
     private static final List<String> GRADE_CELL_CLASSES = List.of(
             "grade-cell",
             "grade-high",
             "grade-mid",
-            "grade-low"
-    );
+            "grade-low");
 
-    @FXML private ComboBox<String> configCombo;
-    @FXML private Label expectedOutputHintLabel;
-    @FXML private TextField sourceFileField;
-    @FXML private TextField compileCmdField;
-    @FXML private TextField runCmdField;
-    @FXML private TextField runArgsField;
-    @FXML private TextField expectedOutputField;
-    @FXML private TextField submissionFolderField;
-    @FXML private TextArea expectedOutputTextArea;
-    @FXML private Button runTestsBtn;
-    @FXML private Button cancelRunBtn;
-    @FXML private Button newProjectBtn;
-    @FXML private Button openProjectBtn;
-    @FXML private Button saveProjectBtn;
-    @FXML private Button deleteProjectBtn;
-    @FXML private Button browseSubmissionsBtn;
-    @FXML private Button scanSubmissionsBtn;
-    @FXML private Button browseExpectedOutputBtn;
-    @FXML private Button saveConfigBtn;
-    @FXML private Button manageConfigBtn;
-    @FXML private Button loadExpectedOutputBtn;
-    @FXML private Button detachExpectedOutputBtn;
-    @FXML private Button saveExpectedOutputBtn;
-    @FXML private ProgressBar runProgress;
+    @FXML
+    private ComboBox<String> configCombo;
+    @FXML
+    private Label expectedOutputHintLabel;
+    @FXML
+    private TextField sourceFileField;
+    @FXML
+    private TextField compileCmdField;
+    @FXML
+    private TextField runCmdField;
+    @FXML
+    private TextField runArgsField;
+    @FXML
+    private TextField expectedOutputField;
+    @FXML
+    private TextField submissionFolderField;
+    @FXML
+    private TextArea expectedOutputTextArea;
+    @FXML
+    private Button runTestsBtn;
+    @FXML
+    private Button cancelRunBtn;
+    @FXML
+    private Button newProjectBtn;
+    @FXML
+    private Button openProjectBtn;
+    @FXML
+    private Button saveProjectBtn;
+    @FXML
+    private Button deleteProjectBtn;
+    @FXML
+    private Button browseSubmissionsBtn;
+    @FXML
+    private Button scanSubmissionsBtn;
+    @FXML
+    private Button browseExpectedOutputBtn;
+    @FXML
+    private Button saveConfigBtn;
+    @FXML
+    private Button manageConfigBtn;
+    @FXML
+    private Button loadExpectedOutputBtn;
+    @FXML
+    private Button detachExpectedOutputBtn;
+    @FXML
+    private Button saveExpectedOutputBtn;
+    @FXML
+    private ProgressBar runProgress;
 
-    @FXML private MenuItem newProjectMenuItem;
-    @FXML private MenuItem openProjectMenuItem;
-    @FXML private MenuItem saveProjectMenuItem;
-    @FXML private MenuItem deleteProjectMenuItem;
-    @FXML private MenuItem exportReportMenuItem;
-    @FXML private MenuItem importConfigMenuItem;
-    @FXML private MenuItem exportConfigMenuItem;
-    @FXML private MenuItem manageConfigsMenuItem;
-    @FXML private Button exportReportBtn;
+    @FXML
+    private MenuItem newProjectMenuItem;
+    @FXML
+    private MenuItem openProjectMenuItem;
+    @FXML
+    private MenuItem saveProjectMenuItem;
+    @FXML
+    private MenuItem deleteProjectMenuItem;
+    @FXML
+    private MenuItem exportReportMenuItem;
+    @FXML
+    private MenuItem importConfigMenuItem;
+    @FXML
+    private MenuItem exportConfigMenuItem;
+    @FXML
+    private MenuItem manageConfigsMenuItem;
+    @FXML
+    private Button exportReportBtn;
 
-    @FXML private Label projectNameLabel;
-    @FXML private Label configNameLabel;
-    @FXML private Label submissionCountLabel;
-    @FXML private Label lastRunLabel;
-    @FXML private Label projectValidationLabel;
-    @FXML private Label configValidationLabel;
-    @FXML private Label configLanguageLabel;
-    @FXML private Label submissionTableHint;
-    @FXML private Label resultsSummaryLabel;
-    @FXML private Label currentRunLabel;
-    @FXML private Label readinessLabel;
+    @FXML
+    private Label projectNameLabel;
+    @FXML
+    private Label configNameLabel;
+    @FXML
+    private Label submissionCountLabel;
+    @FXML
+    private Label lastRunLabel;
+    @FXML
+    private Label projectValidationLabel;
+    @FXML
+    private Label configValidationLabel;
+    @FXML
+    private Label configLanguageLabel;
+    @FXML
+    private Label submissionTableHint;
+    @FXML
+    private Label resultsSummaryLabel;
+    @FXML
+    private Label currentRunLabel;
+    @FXML
+    private Label readinessLabel;
 
-    @FXML private TableView<StudentResult> resultsTable;
-    @FXML private TableColumn<StudentResult, String> colStudentId;
-    @FXML private TableColumn<StudentResult, TestStatus> colStatus;
-    @FXML private TableColumn<StudentResult, Number> colGrade;
-    @FXML private TableColumn<StudentResult, String> colDetails;
-    @FXML private TableColumn<StudentResult, Void> colActions;
-    @FXML private ComboBox<String> statusFilterCombo;
+    @FXML
+    private TableView<StudentResult> resultsTable;
+    @FXML
+    private TableColumn<StudentResult, String> colStudentId;
+    @FXML
+    private TableColumn<StudentResult, TestStatus> colStatus;
+    @FXML
+    private TableColumn<StudentResult, Number> colGrade;
+    @FXML
+    private TableColumn<StudentResult, String> colDetails;
+    @FXML
+    private TableColumn<StudentResult, Void> colActions;
+    @FXML
+    private ComboBox<String> statusFilterCombo;
 
-    @FXML private TableView<SubmissionInfo> submissionsTable;
-    @FXML private TableColumn<SubmissionInfo, String> colSubZip;
-    @FXML private TableColumn<SubmissionInfo, String> colSubStudent;
-    @FXML private TableColumn<SubmissionInfo, String> colSubSize;
+    @FXML
+    private TableView<SubmissionInfo> submissionsTable;
+    @FXML
+    private TableColumn<SubmissionInfo, String> colSubZip;
+    @FXML
+    private TableColumn<SubmissionInfo, String> colSubStudent;
+    @FXML
+    private TableColumn<SubmissionInfo, String> colSubSize;
 
-    @FXML private Label statusLeft;
-    @FXML private Label statusRight;
+    @FXML
+    private Label statusLeft;
+    @FXML
+    private Label statusRight;
 
     private final ObservableList<StudentResult> resultsData = FXCollections.observableArrayList();
     private final FilteredList<StudentResult> filteredResultsData = new FilteredList<>(resultsData, result -> true);
@@ -314,8 +371,7 @@ public class MainController {
                 TestStatus.TIMEOUT.display(),
                 TestStatus.OUTPUT_MISMATCH.display(),
                 TestStatus.MISSING_SOURCE.display(),
-                TestStatus.EXTRACTION_ERROR.display()
-        ));
+                TestStatus.EXTRACTION_ERROR.display()));
         statusFilterCombo.getSelectionModel().select(FILTER_ALL);
         statusFilterCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
             applyResultsFilter();
@@ -452,8 +508,7 @@ public class MainController {
             return;
         }
 
-        javafx.scene.control.TextInputDialog dialog =
-                new javafx.scene.control.TextInputDialog("New Project");
+        javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog("New Project");
         dialog.setTitle("New Project");
         dialog.setHeaderText("Create a New Project");
         dialog.setContentText("Please enter project name:");
@@ -530,7 +585,8 @@ public class MainController {
                 configCombo.getItems().add(activeConfigurationName);
             }
             configCombo.setValue(activeConfigurationName.isBlank() ? null : activeConfigurationName);
-            configLanguageLabel.setText(activeConfigurationLanguage.isBlank() ? "No language specified" : activeConfigurationLanguage);
+            configLanguageLabel.setText(
+                    activeConfigurationLanguage.isBlank() ? "No language specified" : activeConfigurationLanguage);
             sourceFileField.setText(c.getSourceFileName() != null ? c.getSourceFileName() : "");
             compileCmdField.setText(c.getCompileCommand() != null ? c.getCompileCommand() : "");
             runCmdField.setText(c.getRunCommand() != null ? c.getRunCommand() : "");
@@ -749,8 +805,7 @@ public class MainController {
                 ? activeConfigurationName
                 : "New Configuration";
 
-        javafx.scene.control.TextInputDialog dialog =
-                new javafx.scene.control.TextInputDialog(defaultName);
+        javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog(defaultName);
         dialog.setTitle("Save Configuration");
         dialog.setHeaderText("Save current configuration as...");
         dialog.setContentText("Name:");
@@ -846,8 +901,7 @@ public class MainController {
                 sourceFileField,
                 compileCommandField,
                 runCommandField,
-                runArgsDialogField
-        )) {
+                runArgsDialogField)) {
             field.setMaxWidth(Double.MAX_VALUE);
         }
 
@@ -1004,8 +1058,8 @@ public class MainController {
         loadBtn.setDisable(true);
         exportBtn.setDisable(true);
         exportAllBtn.setDisable(list.getItems().isEmpty());
-        list.getItems().addListener((javafx.collections.ListChangeListener<String>) change ->
-                exportAllBtn.setDisable(list.getItems().isEmpty()));
+        list.getItems().addListener((javafx.collections.ListChangeListener<String>) change -> exportAllBtn
+                .setDisable(list.getItems().isEmpty()));
         list.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             boolean empty = newVal == null;
             deleteBtn.setDisable(empty);
@@ -1131,7 +1185,8 @@ public class MainController {
 
     @FXML
     private void onImportConfig() {
-        if (isRunning()) return;
+        if (isRunning())
+            return;
 
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Import Configuration(s)");
@@ -1164,9 +1219,11 @@ public class MainController {
 
     @FXML
     private void onExportConfig() {
-        if (isRunning()) return;
+        if (isRunning())
+            return;
 
-        Configuration cfg = readConfigurationFromForm(activeConfigurationName.isBlank() ? "Exported_Config" : activeConfigurationName);
+        Configuration cfg = readConfigurationFromForm(
+                activeConfigurationName.isBlank() ? "Exported_Config" : activeConfigurationName);
 
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Export Current Form to JSON");
@@ -1260,13 +1317,13 @@ public class MainController {
         } else {
             TextArea fallback = new TextArea(
                     "Manual resource could not be loaded.\n" +
-                    "Please report this issue.\n\n" +
-                    "Quick reference:\n" +
-                    "1. File → New Project, pick or create a configuration.\n" +
-                    "2. Choose a submissions folder containing student ZIPs.\n" +
-                    "3. Pick an expected output file.\n" +
-                    "4. Click Run Tests.\n" +
-                    "5. File → Export Report writes a shareable HTML report.");
+                            "Please report this issue.\n\n" +
+                            "Quick reference:\n" +
+                            "1. File → New Project, pick or create a configuration.\n" +
+                            "2. Choose a submissions folder containing student ZIPs.\n" +
+                            "3. Pick an expected output file.\n" +
+                            "4. Click Run Tests.\n" +
+                            "5. File → Export Report writes a shareable HTML report.");
             fallback.setEditable(false);
             fallback.setWrapText(true);
             fallback.setPrefWidth(600);
@@ -1491,7 +1548,7 @@ public class MainController {
 
         if (cleanText(expectedOutputField.getText()).isBlank()
                 || confirm("Detach Expected Output",
-                "Detach the expected output file from the current project? The file will not be deleted.")) {
+                        "Detach the expected output file from the current project? The file will not be deleted.")) {
             expectedOutputField.setText("");
             clearExpectedOutputEditor();
             validateForm(false);
@@ -1895,6 +1952,7 @@ public class MainController {
         updateRunTooltip(valid, readinessMessages);
         return valid;
     }
+
     private void addOrReplaceResult(StudentResult result) {
         for (int i = 0; i < resultsData.size(); i++) {
             StudentResult existing = resultsData.get(i);
@@ -2436,12 +2494,12 @@ public class MainController {
      * subsequent full "Run Tests" re-extracts the unedited submission.
      */
     private void saveAndReevaluate(Alert alert,
-                                   StudentResult result,
-                                   File sourceFile,
-                                   TextArea sourceArea,
-                                   TextArea detailsArea,
-                                   Label editorStatus,
-                                   Button saveReevalBtn) {
+            StudentResult result,
+            File sourceFile,
+            TextArea sourceArea,
+            TextArea detailsArea,
+            Label editorStatus,
+            Button saveReevalBtn) {
         if (sourceFile == null) {
             return;
         }
@@ -2518,7 +2576,7 @@ public class MainController {
         if (result == null || result.getStudentId() == null || result.getStudentId().isBlank()) {
             return null;
         }
-        File studentDir = new File("working_directory", result.getStudentId());
+        File studentDir = new File(AppPaths.workingDir(), result.getStudentId());
         if (!studentDir.isDirectory()) {
             return null;
         }
